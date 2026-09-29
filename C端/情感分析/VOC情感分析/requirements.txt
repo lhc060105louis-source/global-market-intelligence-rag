@@ -1,0 +1,6 @@
+pypdf>=4.0.0
+pymupdf>=1.24.0
+Pillow>=10.0.0
+rapidocr_onnxruntime>=1.4.4
+openai
+python-dotenv

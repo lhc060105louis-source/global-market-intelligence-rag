@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VOC 情感分析</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brandMark">VOC</span>
+        <span>情感分析</span>
+      </div>
+      <nav>
+        <button class="nav active" data-page="tasks">任务中心</button>
+        <button class="nav" data-page="result">结果页</button>
+      </nav>
+      <div class="sideHint">
+        <strong>当前逻辑</strong>
+        <span>先创建任务，再进入这个任务自己的结果页。</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">任务中心</h1>
+          <p id="pageMeta">创建 CSV/XLSX 导入、实时采集或自动采集任务</p>
+        </div>
+        <button id="refreshBtn">刷新</button>
+      </header>
+
+      <section id="tasksPage" class="page active">
+        <section class="pageIntro">
+          <div>
+            <span class="eyebrow">VOC Pipeline</span>
+            <h2>每一次上传或采集都是一个独立任务</h2>
+            <p>任务完成后，点“打开结果页”查看该任务对应的洞察、六维分析和危机监测。默认不会混入历史任务。</p>
+          </div>
+          <div class="introStats" id="taskSummary"></div>
+        </section>
+
+        <div class="taskCreation">
+          <section class="panel">
+            <div class="panelHead">
+              <div>
+                <h3>文件任务</h3>
+                <p>上传 CSV/XLSX，系统会标准化字段、去重、清洗，并可自动分析。</p>
+              </div>
+              <span class="pill">CSV / XLSX</span>
+            </div>
+            <form id="uploadForm" class="stack">
+              <label class="uploadBox">
+                <input id="fileInput" type="file" accept=".csv,.xlsx">
+                <strong>选择文件</strong>
+                <span>支持 source_id、channel、published_at、language、region、brand、model、text、source_url</span>
+              </label>
+              <div class="formFooter">
+                <label><input id="fileAnalyze" type="checkbox" checked> 自动分析</label>
+                <button type="submit" class="primaryBtn">创建文件任务</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panelHead">
+              <div>
+                <h3>实时采集任务</h3>
+                <p>YouTube 和汽车之家会进入同一条 raw / cleaned / analysis 流水线。</p>
+              </div>
+              <span class="pill live">Online</span>
+            </div>
+            <div class="stack">
+              <div class="checks">
+                <label><input type="checkbox" class="sourceCheck" value="youtube" checked> YouTube</label>
+                <label><input type="checkbox" class="sourceCheck" value="autohome" checked> 汽车之家</label>
+              </div>
+<label class="fieldLabel">品牌</label>
+<select id="brandSelect">
+  <option value="">请选择品牌</option>
+  <option value="BYD">BYD</option>
+  <option value="MG">MG</option>
+  <option value="Volkswagen">Volkswagen</option>
+  <option value="Tesla">Tesla</option>
+  <option value="BMW">BMW</option>
+  <option value="Mercedes-Benz">Mercedes-Benz</option>
+  <option value="Audi">Audi</option>
+  <option value="Volvo">Volvo</option>
+  <option value="Polestar">Polestar</option>
+  <option value="Renault">Renault</option>
+  <option value="Peugeot">Peugeot</option>
+  <option value="Citroën">Citroën</option>
+  <option value="Škoda">Škoda</option>
+  <option value="Cupra">Cupra</option>
+  <option value="Hyundai">Hyundai</option>
+  <option value="Kia">Kia</option>
+</select>
+
+<label class="fieldLabel">车型</label>
+<select id="modelSelect">
+  <option value="">请先选择品牌</option>
+</select>
+              <label class="fieldLabel">汽车之家公开口碑页 URL</label>
+              <textarea id="autohomeUrls" rows="2" placeholder="每行一个 URL"></textarea>
+              <div class="formFooter">
+                <label>limit <input id="limitInput" type="number" value="10" min="1" max="100"></label>
+                <label><input id="crawlAnalyze" type="checkbox" checked> 自动分析</label>
+                <button id="crawlBtn" class="primaryBtn">创建采集任务</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section id="activeTaskProgress" class="progressPanel" hidden></section>
+
+        <section class="panel monitorPanel">
+          <div class="panelHead">
+            <div>
+              <h3>自动采集</h3>
+              <p>使用上面的来源、关键词和 limit 定时创建采集任务。</p>
+            </div>
+            <span id="monitorState" class="pill mutedPill">未启用</span>
+          </div>
+          <div class="monitorRow">
+            <label><input id="monitorEnabled" type="checkbox"> 启用</label>
+            <label>间隔分钟 <input id="monitorInterval" type="number" min="1" value="60"></label>
+            <button id="saveMonitorBtn">保存自动采集</button>
+            <button id="runMonitorBtn">立即跑一轮</button>
+          </div>
+          <details>
+            <summary>查看当前配置</summary>
+            <pre id="monitorConfig"></pre>
+          </details>
+        </section>
+
+        <section class="panel">
+          <div class="panelHead">
+            <div>
+              <h3>任务列表</h3>
+              <p>一个任务对应一个结果页。重复上传同一个文件会复用已有任务。</p>
+            </div>
+          </div>
+          <div id="taskList" class="taskCards"></div>
+        </section>
+      </section>
+
+      <section id="resultPage" class="page">
+        <section id="emptyResult" class="emptyState">
+          <h2>还没有选择任务</h2>
+          <p>回到任务中心，点某个任务的“打开结果页”。</p>
+          <button class="primaryBtn" id="backToTasksBtn">去任务中心</button>
+        </section>
+
+        <section id="resultContent" class="resultContent">
+          <div class="resultHeader">
+            <div>
+              <span class="eyebrow">任务结果</span>
+              <h2 id="resultTitle">任务结果</h2>
+              <p id="resultMeta">只展示当前任务的数据</p>
+            </div>
+            <div class="resultActions">
+              <button id="resultAnalyzeBtn" class="primaryBtn">开始分析</button>
+              <button id="resultDeleteBtn" class="dangerBtn">删除任务</button>
+              <button id="backBtn">返回任务中心</button>
+            </div>
+          </div>
+
+          <div id="resultProgress" class="resultProgress" hidden></div>
+
+          <div id="resultStats" class="metricGrid"></div>
+
+          <div class="tabs">
+            <button class="tab" data-tab="data">标准数据</button>
+            <button class="tab active" data-tab="overview">洞察总览</button>
+            <button class="tab" data-tab="six">六维洞察</button>
+            <button class="tab" data-tab="crisis">危机监测</button>
+          </div>
+
+          <section id="dataTab" class="tabPage">
+            <section class="panel dataPanel">
+              <div class="panelHead">
+                <div>
+                  <h3>清洗后的标准数据</h3>
+                  <p id="standardDataMeta">CSV/XLSX 与实时采集都在这里按相同的 9 个字段展示。</p>
+                </div>
+                <div class="dataPager">
+                  <button id="dataPrevBtn" aria-label="上一页">上一页</button>
+                  <span id="dataPageLabel">第 1 页</span>
+                  <button id="dataNextBtn" aria-label="下一页">下一页</button>
+                </div>
+              </div>
+              <div class="standardTableWindow">
+                <table class="standardTable">
+                  <thead><tr>
+                    <th>source_id</th><th>channel</th><th>published_at</th><th>language</th><th>region</th>
+                    <th>brand</th><th>model</th><th>text</th><th>source_url</th>
+                  </tr></thead>
+                  <tbody id="standardDataBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section id="overviewTab" class="tabPage active">
+            <div id="overviewSummary" class="insightSummary"></div>
+            <div class="grid two">
+              <section class="panel chartPanel">
+                <div class="panelHead"><div><h3>整体情感构成</h3><p>查看正面、中性、负面和混合反馈所占比例</p></div></div>
+                <div id="sentimentChart"></div>
+              </section>
+              <section class="panel chartPanel">
+                <div class="panelHead"><div><h3>本次分析结论</h3><p>从当前任务中提取最值得关注的信息</p></div></div>
+                <div id="overviewFindings"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="sixTab" class="tabPage">
+            <div class="sentimentKey"><span><i class="positive"></i>正面</span><span><i class="neutral"></i>中性</span><span><i class="negative"></i>负面</span><span><i class="mixed"></i>混合</span></div>
+            <div class="grid two">
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">01</span><h3>客户旅程情感</h3><p>不同体验阶段中的情感构成</p></div></div><div id="journeyCurve"></div></section>
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">02</span><h3>推荐意愿估算</h3><p>根据当前负面反馈占比估算，范围 0–100</p></div></div><div id="npsBox"></div></section>
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">03</span><h3>抱怨主题排行</h3><p>被提及次数最多的问题</p></div></div><div id="sixComplaints"></div></section>
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">04</span><h3>品牌反馈构成</h3><p>各品牌的正面、负面和其他反馈占比</p></div></div><div id="brandAttitude"></div></section>
+              <section class="panel signalPanel"><div class="panelHead"><div><span class="dimensionNo">05</span><h3>召回风险信号</h3><p>命中安全、故障或召回相关高危表达</p></div></div><div id="recallWarning"></div></section>
+              <section class="panel signalPanel"><div class="panelHead"><div><span class="dimensionNo">06</span><h3>维权风险信号</h3><p>命中投诉、法律或集体维权相关表达</p></div></div><div id="rightsRisk"></div></section>
+            </div>
+          </section>
+
+          <section id="crisisTab" class="tabPage">
+            <section id="riskBanner" class="riskBanner"></section>
+            <div id="crisisSummary" class="crisisSummary"></div>
+            <section class="panel chartPanel">
+              <div class="panelHead"><div><h3>每日反馈与负面趋势</h3><p>灰色代表当日全部反馈，红色代表其中的负面反馈</p></div></div>
+              <div id="negativeTrend"></div>
+            </section>
+            <div class="triggerGuide">
+              <div><strong>负面反馈</strong><span>表达不满或问题，但尚未达到危机级别</span></div>
+              <div><strong>召回信号</strong><span>涉及安全故障、批次问题或召回诉求</span></div>
+              <div><strong>维权信号</strong><span>涉及投诉、法律行动或集体维权诉求</span></div>
+            </div>
+            <div class="grid two crisisDetails">
+              <section class="panel"><div class="panelHead"><div><h3>告警记录</h3><p>按时间列出已触发的高风险信号</p></div></div><div id="alertTimeline"></div></section>
+              <section class="panel"><div class="panelHead"><div><h3>高风险原文</h3><p>可追溯到来源、车型、地区和原始链接</p></div></div><div id="crisisOriginals"></div></section>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <div id="toast"></div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

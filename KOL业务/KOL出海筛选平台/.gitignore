@@ -1,0 +1,14 @@
+# Local Python environment and build output
+.venv/
+.build/
+dist/
+
+# Runtime and test artifacts
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.db
+
+# OS files
+.DS_Store
+Thumbs.db

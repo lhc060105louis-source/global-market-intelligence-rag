@@ -1,0 +1,51 @@
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data and records
+*.db
+*.sqlite
+*.sqlite3
+*.log
+**/uploads/
+**/logs/
+**/outputs/
+**/work/
+**/data/
+**/sample_data/
+.local-kol-platform/
+
+# Local development environments and generated assets
+.venv/
+venv/
+venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+dist/
+build/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Review before adding raw datasets or office deliverables
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.xlsm
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.pdf

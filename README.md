@@ -1,0 +1,95 @@
+# Global Market Intelligence and Risk Analysis Platform
+
+A research-oriented software prototype for connecting customer voice analysis, cross-border B2B compliance support, and creator assessment through a shared retrieval-augmented generation (RAG) hub.
+
+The project explores how structured signals from separate workflows can be collected, searched, reviewed, and presented in one local decision-support interface. It is an engineering prototype; it does not claim validated market forecasts or autonomous compliance decisions.
+
+## What the platform includes
+
+| Workflow | Purpose |
+| --- | --- |
+| Customer voice (VOC) | Analyze consumer feedback and prepare normalized sentiment signals for downstream use. |
+| B2B market and compliance support | Organize market and regulatory intelligence, business opportunities, and partner-matching workflows. |
+| Creator (KOL) assessment | Support creator profiles, commercial and risk assessment, comparisons, and collaboration workflows. |
+| Shared RAG hub | Ingest structured records, provide search and question-answering APIs, and track record, risk, and synchronization status. |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    C[Customer VOC workflow] -->|Structured signals| H["FastAPI RAG Hub<br/>SQLite business store"]
+    B[B2B intelligence workflow] -->|Events and records| H
+    K[Creator assessment workflow] -->|Ready assessments| H
+    H -->|Search and answers| UI["React web interface<br/>Same-origin API proxy"]
+    H -. optional adapter .-> M[Configured MaxKB service]
+    M -. optional local model runtime .-> O[Ollama]
+```
+
+MaxKB and Ollama are optional external services. The public repository contains the integration code, not a vendored copy of MaxKB.
+
+## Repository layout
+
+| Path | Role |
+| --- | --- |
+| `C端/情感分析/VOC情感分析` | Customer review analysis and VOC event preparation. |
+| `B端政企结合/week7/compliance-sales-support` | B2B compliance, intelligence, and opportunity-support service. |
+| `KOL业务/KOL出海筛选平台/app` | Creator assessment and collaboration platform. |
+| `overseas_shared` | Shared data contracts and event types. |
+| `rag/service` | FastAPI ingestion, query, record, and coordination APIs. |
+| `rag/frontend-v2` | React and TypeScript RAG interface with a same-origin proxy. |
+| `rag/launcher` | Windows and macOS scripts for the integrated local workflow. |
+
+## Local setup
+
+The integrated workflow expects Python 3.11 or later, Node.js with pnpm, and local configuration for the component services. MaxKB and Ollama are only needed when using those integrations. Each Python service has its own `requirements.txt`; the React interface uses pnpm. Install dependencies in the corresponding local virtual environments before launching the full workflow.
+
+Build the RAG interface from the repository root:
+
+```powershell
+cd rag/frontend-v2
+pnpm install --frozen-lockfile
+pnpm run build
+cd ../launcher
+```
+
+On Windows, start the integrated workflow with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-local-pipeline.ps1 -OpenBrowser
+```
+
+On macOS, from `rag/launcher`, make the launcher executable once and run it:
+
+```bash
+chmod +x start-local-pipeline.sh
+./start-local-pipeline.sh --open-browser
+```
+
+To run only the RAG Hub, install its dependencies in `rag/service`, create a local `.env` from `.env.example`, set a private `RAG_HUB_API_KEY`, and start the service:
+
+```bash
+cd rag/service
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+The integrated launcher uses these local endpoints by default:
+
+| Service | Address |
+| --- | --- |
+| Customer VOC | `http://127.0.0.1:8765/` |
+| B2B support | `http://127.0.0.1:8000/` |
+| Creator platform | `http://127.0.0.1:8766/` |
+| RAG Hub API | `http://127.0.0.1:8001/` |
+| RAG web interface | `http://127.0.0.1:8010/` |
+| Optional MaxKB service | `http://127.0.0.1:8080/` |
+
+## Data and security
+
+The public snapshot excludes raw customer-review and creator spreadsheets, local databases, uploaded records, internal project documents, presentation screenshots, and the original Git history. The `.env.example` files are templates only. Keep API keys, service tokens, passwords, and real customer or creator records in local configuration and storage; do not commit them.
+
+Use only data you are authorized to process. Review RAG outputs and source evidence before relying on them; generated answers may be incomplete or incorrect.
+
+## Research scope
+
+This repository documents a multi-workflow software design. It does not include a validated benchmark, causal analysis, or claims about model accuracy. Treat its outputs as decision support requiring human review.

@@ -1,0 +1,1 @@
+"""RAG Hub application package."""
