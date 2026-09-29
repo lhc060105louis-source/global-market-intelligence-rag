@@ -182,6 +182,35 @@ class RiskTrendPoint(Base):
     episode: Mapped[RiskEpisode] = relationship(back_populates="trend_points")
 
 
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        Index("uq_agent_runs_request_key", "request_key", unique=True),
+        Index("ix_agent_runs_risk_created", "risk_object_id", "created_at"),
+        Index("ix_agent_runs_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
+    request_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    risk_object_id: Mapped[str] = mapped_column(ForeignKey("risk_objects.id"), index=True)
+    episode_id: Mapped[str] = mapped_column(ForeignKey("risk_episodes.id"), index=True)
+    source_versions_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    tool_trace_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    draft_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    initiated_by: Mapped[str] = mapped_column(String(255))
+    event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    candidate_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    case_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    object_version: Mapped[int] = mapped_column(Integer, default=1)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
 class RecordAnnotation(Base):
     __tablename__ = "record_annotations"
 

@@ -1,6 +1,6 @@
 # Cross-Domain Risk Investigation Agent Design
 
-**Status:** Bilingual specification; user review pending
+**Status:** Approved for MVP implementation
 
 **Date:** 2026-09-29
 
@@ -100,7 +100,7 @@ Evaluate a small, versioned set of public or synthetic scenarios for evidence ci
 
 # 跨域风险调查 Agent 设计（中文版）
 
-**状态：** 方向已确认，设计文档待审阅
+**状态：** 已确认并授权实现 MVP
 
 **日期：** 2026-09-29
 

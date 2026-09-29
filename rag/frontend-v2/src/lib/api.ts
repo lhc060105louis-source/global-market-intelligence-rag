@@ -98,6 +98,47 @@ export interface RiskDetail {
   episodes: Array<Record<string, unknown>>
 }
 
+export interface RiskInvestigationTask {
+  owner_domain: 'C' | 'B' | 'KOL'
+  task_type: string
+  assignee?: string | null
+  expected_output_type: string
+  is_required: boolean
+}
+
+export interface RiskInvestigationDraft {
+  summary: string
+  domain_impacts: Record<string, string>
+  evidence: Array<{
+    record_id: string
+    domain: 'c_current' | 'c_history' | 'b_business' | 'kol'
+    source_version: number
+    source_url: string | null
+    business_date: string | null
+    title: string
+    preview: string
+  }>
+  evidence_gaps: string[]
+  limitations: string[]
+  tasks: RiskInvestigationTask[]
+}
+
+export interface RiskInvestigationRun {
+  id: string
+  risk_object_id: string
+  episode_id: string
+  status: 'queued' | 'running' | 'awaiting_approval' | 'needs_clarification' | 'no_evidence' | 'failed' | 'approved' | 'rejected' | 'stale'
+  object_version: number
+  tool_trace: Array<Record<string, unknown>>
+  draft: RiskInvestigationDraft | null
+  decision: string | null
+  decision_reason: string | null
+  event_id: string | null
+  candidate_id: string | null
+  case_id: string | null
+  error_code: string | null
+}
+
 export interface QueryOutput {
   summary: string | null
   consumer_signal: string | null
@@ -222,9 +263,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
   }
   if (!response.ok) {
-    const detail = typeof payload === 'object' && payload !== null && 'detail' in payload
-      ? String((payload as { detail?: unknown }).detail)
-      : `RAG Hub request failed (HTTP ${response.status})`
+    const payloadObject = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : null
+    const rawDetail = payloadObject?.detail ?? payloadObject
+    const detail = typeof rawDetail === 'object' && rawDetail !== null && 'message' in rawDetail
+      ? String((rawDetail as { message?: unknown }).message || (rawDetail as { error_code?: unknown }).error_code || `RAG Hub request failed (HTTP ${response.status})`)
+      : typeof rawDetail === 'string' ? rawDetail : `RAG Hub request failed (HTTP ${response.status})`
     throw new RagApiError(response.status, detail)
   }
   return payload as T
@@ -251,6 +294,23 @@ export const ragApi = {
 
   getRisk: (riskId: string, signal?: AbortSignal) =>
     request<{ risk: RiskDetail }>(`/api/v1/risks/${encodeURIComponent(riskId)}`, { signal }),
+
+  startRiskInvestigation: (riskId: string, requestKey: string) =>
+    request<{ run_id: string; status: string; object_version: number }>('/api/v1/agent/risk-investigations', {
+      method: 'POST', body: JSON.stringify({ risk_object_id: riskId, request_key: requestKey }),
+    }),
+
+  getRiskInvestigation: (runId: string, signal?: AbortSignal) =>
+    request<{ run: RiskInvestigationRun }>(`/api/v1/agent/risk-investigations/${encodeURIComponent(runId)}`, { signal }),
+
+  decideRiskInvestigation: (runId: string, body: {
+    decision: 'approve' | 'reject'
+    expected_object_version: number
+    reason?: string
+    tasks?: RiskInvestigationTask[]
+  }) => request<{ run: RiskInvestigationRun }>(`/api/v1/agent/risk-investigations/${encodeURIComponent(runId)}/decision`, {
+    method: 'POST', body: JSON.stringify(body),
+  }),
 
   query: (question: string, scope: DomainScope, signal?: AbortSignal) => {
     const domains = scope === 'auto' ? ['c', 'b', 'kol'] : [scope]

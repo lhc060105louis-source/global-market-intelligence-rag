@@ -18,6 +18,8 @@ import {
   RagRecord,
   QueryResponse,
   RiskDetail,
+  RiskInvestigationRun,
+  RiskInvestigationTask,
   RiskItem,
   SemanticFieldKey,
   formatDateTime,
@@ -66,12 +68,19 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
   const [detail, setDetail] = useState<RiskDetail | null>(null)
   const [ragResponse, setRagResponse] = useState<QueryResponse | null>(null)
   const [ragEvidence, setRagEvidence] = useState<AlertEvidence[]>([])
+  const [investigationRun, setInvestigationRun] = useState<RiskInvestigationRun | null>(null)
+  const [investigationStarting, setInvestigationStarting] = useState(false)
+  const [investigationTasks, setInvestigationTasks] = useState<RiskInvestigationTask[]>([])
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [decisionBusy, setDecisionBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [ragLoading, setRagLoading] = useState(false)
   const [error, setError] = useState('')
   const ragRequestSequence = useRef(0)
   const activeRagRequest = useRef<AbortController | null>(null)
+  const selectedIdRef = useRef(selectedId)
+  selectedIdRef.current = selectedId
 
   useEffect(() => {
     const controller = new AbortController()
@@ -99,6 +108,55 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
     setRagEvidence([])
     setRagLoading(false)
   }, [selectedId])
+
+  useEffect(() => {
+    setInvestigationRun(null)
+    setInvestigationTasks([])
+    setRejectionReason('')
+  }, [selectedId])
+
+  useEffect(() => {
+    if (!selectedId) return
+    const controller = new AbortController()
+    const savedRunId = sessionStorage.getItem(`risk-investigation:${selectedId}`)
+    if (savedRunId) {
+      void ragApi.getRiskInvestigation(savedRunId, controller.signal)
+        .then(result => {
+          if (controller.signal.aborted) return
+          setInvestigationRun(result.run)
+          if (result.run.draft) setInvestigationTasks(result.run.draft.tasks)
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) sessionStorage.removeItem(`risk-investigation:${selectedId}`)
+        })
+    }
+    return () => controller.abort()
+  }, [selectedId])
+
+  useEffect(() => {
+    if (!investigationRun || !['queued', 'running'].includes(investigationRun.status)) return
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const refresh = async () => {
+      try {
+        const result = await ragApi.getRiskInvestigation(investigationRun.id, controller.signal)
+        if (controller.signal.aborted || selectedIdRef.current !== investigationRun.risk_object_id) return
+        setInvestigationRun(result.run)
+        if (result.run.draft) setInvestigationTasks(result.run.draft.tasks)
+        if (['queued', 'running'].includes(result.run.status)) timer = setTimeout(() => void refresh(), 1000)
+      } catch (errorValue) {
+        if (!controller.signal.aborted) {
+          showToast(errorValue instanceof Error ? errorValue.message : 'Could not refresh the investigation')
+          timer = setTimeout(() => void refresh(), 2000)
+        }
+      }
+    }
+    timer = setTimeout(() => void refresh(), 1000)
+    return () => {
+      controller.abort()
+      if (timer) clearTimeout(timer)
+    }
+  }, [investigationRun?.id, investigationRun?.status, showToast])
 
   useEffect(() => () => activeRagRequest.current?.abort(), [])
 
@@ -159,6 +217,57 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
         activeRagRequest.current = null
         setRagLoading(false)
       }
+    }
+  }
+
+  async function startInvestigation() {
+    if (!selected || investigationStarting) return
+    const riskId = selected.id
+    setInvestigationStarting(true)
+    try {
+      const requestKey = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const result = await ragApi.startRiskInvestigation(riskId, requestKey)
+      sessionStorage.setItem(`risk-investigation:${riskId}`, result.run_id)
+      const refreshed = await ragApi.getRiskInvestigation(result.run_id)
+      if (selectedIdRef.current !== riskId) return
+      setInvestigationRun(refreshed.run)
+      showToast('Investigation started')
+    } catch (errorValue) {
+      showToast(errorValue instanceof Error ? errorValue.message : 'Could not start the investigation')
+    } finally {
+      setInvestigationStarting(false)
+    }
+  }
+
+  async function decideInvestigation(decision: 'approve' | 'reject') {
+    if (!investigationRun || decisionBusy) return
+    const riskId = investigationRun.risk_object_id
+    const runId = investigationRun.id
+    if (decision === 'reject' && !rejectionReason.trim()) {
+      showToast('Add a short reason before rejecting this proposal')
+      return
+    }
+    setDecisionBusy(true)
+    try {
+      await ragApi.decideRiskInvestigation(runId, {
+        decision,
+        expected_object_version: investigationRun.object_version,
+        ...(decision === 'reject' ? { reason: rejectionReason.trim() } : { tasks: investigationTasks }),
+      })
+      const refreshed = await ragApi.getRiskInvestigation(runId)
+      if (selectedIdRef.current !== riskId) return
+      setInvestigationRun(refreshed.run)
+      showToast(refreshed.run.status === 'stale'
+        ? 'Evidence changed; start a new investigation before approval'
+        : decision === 'approve' ? 'Investigation approved and case created' : 'Investigation proposal rejected')
+    } catch (errorValue) {
+      showToast(errorValue instanceof Error ? errorValue.message : 'Could not save the decision')
+      try {
+        const refreshed = await ragApi.getRiskInvestigation(runId)
+        if (selectedIdRef.current === riskId) setInvestigationRun(refreshed.run)
+      } catch { /* keep the last visible run state */ }
+    } finally {
+      setDecisionBusy(false)
     }
   }
 
@@ -225,6 +334,38 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
               </Card>
 
               <Card>
+                <CardHead>
+                  <CardTitle icon="✦">Risk Investigation Agent</CardTitle>
+                  {investigationRun && <Badge text={investigationRun.status.replaceAll('_', ' ')} color={investigationRun.status === 'awaiting_approval' ? 'amber' : investigationRun.status === 'approved' ? 'green' : 'gray'} />}
+                </CardHead>
+                <CardBody>
+                  {!investigationRun && <InfoBox>Investigate this active risk across consumer, business, and creator records. Every proposed case and task requires your approval.</InfoBox>}
+                  {investigationRun?.status === 'queued' && <InfoBox>The investigation is queued…</InfoBox>}
+                  {investigationRun?.status === 'running' && <InfoBox>Reviewing available evidence…</InfoBox>}
+                  {investigationRun?.status === 'needs_clarification' && <WarnBox>The risk subject needs a brand and vehicle model before the Agent can investigate.</WarnBox>}
+                  {investigationRun?.status === 'no_evidence' && <WarnBox>No current evidence passed source and version checks. No case or tasks were created.</WarnBox>}
+                  {investigationRun?.status === 'failed' && <WarnBox>Investigation stopped ({investigationRun.error_code || 'agent_error'}). No case or tasks were created.</WarnBox>}
+                  {investigationRun?.status === 'stale' && <WarnBox>The evidence changed after this draft was created. Start a new investigation.</WarnBox>}
+                  {investigationRun?.draft && (
+                    <>
+                      <div style={{ background: '#F8FAFC', borderRadius: 6, padding: 11, fontSize: 11, lineHeight: 1.7 }}><strong>Investigation brief</strong><p style={{ margin: '5px 0 0' }}>{investigationRun.draft.summary}</p></div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginTop: 9 }}>
+                        {Object.entries(investigationRun.draft.domain_impacts || {}).map(([domain, impact]) => <div key={domain} style={{ border: '0.5px solid var(--border)', borderRadius: 7, padding: 9 }}><strong style={{ fontSize: 10 }}>{domain}</strong><p style={{ fontSize: 9, color: '#6B7280', lineHeight: 1.5, margin: '5px 0 0' }}>{impact}</p></div>)}
+                      </div>
+                      {investigationRun.draft.evidence.length > 0 && <div style={{ marginTop: 10 }}><strong style={{ fontSize: 10 }}>Verified evidence</strong>{investigationRun.draft.evidence.map(item => <div key={item.record_id} style={{ padding: '7px 0', borderBottom: '0.5px solid #F1F5F9', fontSize: 9 }}><div><DomainMark domain={item.domain.startsWith('c_') ? 'C' : item.domain === 'b_business' ? 'B' : 'K'} /> <strong>{item.title}</strong> · v{item.source_version} · {item.business_date || 'date unavailable'}</div><div style={{ color: '#6B7280', marginTop: 3 }}>{item.preview}</div>{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">Open source</a>}</div>)}</div>}
+                      {(investigationRun.draft.evidence_gaps.length > 0 || investigationRun.draft.limitations.length > 0) && <WarnBox><strong>Evidence gaps:</strong> {investigationRun.draft.evidence_gaps.join(' · ') || 'None stated'}<br /><strong>Limitations:</strong> {investigationRun.draft.limitations.join(' · ') || 'None stated'}</WarnBox>}
+                      {investigationRun.tool_trace.length > 0 && <details style={{ marginTop: 8, fontSize: 9, color: '#64748B' }}><summary>Investigation steps ({investigationRun.tool_trace.length})</summary>{investigationRun.tool_trace.map((step, index) => <div key={index} style={{ padding: '4px 0' }}>{String(step.tool || 'read-only tool')}{typeof step.arguments === 'object' && step.arguments !== null && 'target' in step.arguments ? ` · ${String((step.arguments as { target: unknown }).target)}` : ''}</div>)}</details>}
+                      <div style={{ marginTop: 10 }}><strong style={{ fontSize: 10 }}>Proposed tasks</strong>{investigationTasks.map((task, index) => <div key={`${index}-${task.task_type}`} style={{ display: 'grid', gridTemplateColumns: '72px 1fr 1fr 1fr', gap: 6, marginTop: 6 }}><select aria-label="Task domain" value={task.owner_domain} onChange={event => setInvestigationTasks(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, owner_domain: event.target.value as RiskInvestigationTask['owner_domain'] } : item))}><option value="C">C</option><option value="B">B</option><option value="KOL">KOL</option></select><input aria-label="Task type" value={task.task_type} onChange={event => setInvestigationTasks(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, task_type: event.target.value } : item))} /><input aria-label="Assignee" placeholder="Assignee" value={task.assignee || ''} onChange={event => setInvestigationTasks(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, assignee: event.target.value } : item))} /><input aria-label="Expected output" value={task.expected_output_type} onChange={event => setInvestigationTasks(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, expected_output_type: event.target.value } : item))} /></div>)}</div>
+                    </>
+                  )}
+                  {investigationRun?.status === 'awaiting_approval' && <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 7 }}><input aria-label="Rejection reason" placeholder="Reason required to reject" value={rejectionReason} onChange={event => setRejectionReason(event.target.value)} /><div style={{ display: 'flex', gap: 8 }}><BtnPrimary onClick={() => void decideInvestigation('approve')} disabled={decisionBusy || !investigationTasks.length}>Approve and create case</BtnPrimary><BtnOutline onClick={() => void decideInvestigation('reject')} disabled={decisionBusy}>Reject proposal</BtnOutline></div></div>}
+                  {investigationRun?.status === 'approved' && <InfoBox>Approved. Case ID: {investigationRun.case_id || '—'}</InfoBox>}
+                  {investigationRun?.status === 'rejected' && <InfoBox>Proposal rejected. No coordination case or tasks were created.</InfoBox>}
+                  {selected.open_episode_id && (!investigationRun || ['failed', 'stale', 'no_evidence', 'needs_clarification', 'rejected'].includes(investigationRun.status)) && <div style={{ marginTop: 10 }}><BtnPrimary onClick={() => void startInvestigation()} disabled={investigationStarting}>{investigationStarting ? 'Starting…' : investigationRun ? 'Start a new investigation' : 'Investigate risk'}</BtnPrimary></div>}
+                </CardBody>
+              </Card>
+
+              <Card>
       <CardHead><CardTitle icon="◎">RAG Context</CardTitle><SectionNote>Query on demand; alerts are not processed in advance.</SectionNote></CardHead>
                 <CardBody>
       {!ragResponse && !ragLoading && <InfoBox><strong>Alert status is managed by the consumer service.</strong> Select the button to search related business and creator knowledge. The RAG Hub does not change alert status.</InfoBox>}
@@ -269,7 +410,7 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
         </div>
       </div>
 
-      <WarnBox><strong>Scope:</strong> Alerts are opened and resolved by the consumer risk engine. This page reads risk data and retrieves RAG evidence on demand; it cannot modify alert status or create business tasks.</WarnBox>
+      <WarnBox><strong>Scope:</strong> Alerts are opened and resolved by the consumer risk engine. The investigation Agent can propose coordination tasks, but creates a case and tasks only after an operator approves the cited draft.</WarnBox>
     </div>
   )
 }

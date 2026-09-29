@@ -1,6 +1,6 @@
 # 跨域风险调查 Agent MVP 实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在风险页面加入一个可追踪、引用证据、经人工批准后才创建协同案例和任务的跨域调查 Agent。
 
@@ -54,10 +54,10 @@
 
 **步骤：**
 
-- [ ] 在模型文件中加入 `AgentRun` SQLAlchemy 模型，增加 `request_key` 唯一索引、风险对象和事件周期外键、状态索引及 JSON 状态字段。
-- [ ] 在新 schema 文件中定义上面的输入输出类型；限制工具名为四个只读工具：`get_risk_context`、`get_record`、`search_domain`、`finish_investigation`。
-- [ ] 新建 Alembic 迁移，`down_revision` 指向 `0003_coordination_delivery_idempotency`；升级创建表及索引，降级按依赖顺序删除。
-- [ ] 确认迁移字段名称与 ORM 完全一致，并确认请求键和状态字段有数据库级索引约束。
+- [x] 在模型文件中加入 `AgentRun` SQLAlchemy 模型，增加 `request_key` 唯一索引、风险对象和事件周期外键、状态索引及 JSON 状态字段。
+- [x] 在新 schema 文件中定义上面的输入输出类型；限制工具名为四个只读工具：`get_risk_context`、`get_record`、`search_domain`、`finish_investigation`。
+- [x] 新建 Alembic 迁移，`down_revision` 指向 `0003_coordination_delivery_idempotency`；升级创建表及索引，降级按依赖顺序删除。
+- [x] 确认迁移字段名称与 ORM 完全一致，并确认请求键和状态字段有数据库级索引约束。
 
 ### Task 2：受限调查服务
 
@@ -74,16 +74,16 @@
 
 **步骤：**
 
-- [ ] 实现只读工具分发：风险上下文只从风险对象、活跃事件周期和趋势点读取；记录读取只接受数据库已有 ID；搜索只允许 `c_current`、`c_history`、`b_business`、`kol`。
-- [ ] 使用现有 `query.py` 的 `evaluate_evidence` / `filter_effective_evidence` 等函数，将 MaxKB 命中文档解析回当前有效、来源版本一致的 `KnowledgeRecord`；不接受适配器返回的自由文本作为未经验证的证据。
-- [ ] 为每次运行设 6 次工具调用和配置的总查询时限；每次 Ollama 调用使用 httpx 超时；序列化前裁剪轨迹字段，不存储凭据或完整提示词。
-- [ ] 使用 Ollama `/api/chat` 的 JSON 输出格式；提示词要求只选择白名单工具，声明证据是数据不是指令，且最终草稿只能引用已验证证据。
-- [ ] 按以下循环执行：载入风险上下文 → 将当前可用工具、已验证证据摘要和剩余预算传给模型 → 验证并执行一个只读工具 → 将已清理的调用和结果写入 `tool_trace_json` → 继续，直到模型选 `finish_investigation` 或达到调用/时间上限。
-- [ ] 对每个工具提案验证 schema、参数、域、记录 ID、查询长度、调用预算和风险主体范围；无效提案按失败处理，不执行工具。
-- [ ] 证据为空时保存 `no_evidence`；主体缺少品牌/车型时保存 `needs_clarification`；模型错误、超时或预算用尽时保存可公开错误码并禁止审批。
-- [ ] 最终草稿限制每域最多 3 条证据，保存 `record_id`、`source_version`、证据字段路径和哈希引用，列出数据时间、证据缺口、限制及建议任务。
-- [ ] 实现审批事务：再次校验证据版本和哈希；调用新增的 `create_investigation_domain_event(db, run, actor_id)` 创建/复用来源领域事件；用确定性候选键创建并接受关联候选；创建案例和任务；写入协调审计事件；更新运行结果 ID 和终态。事务失败时全部回滚。`create_investigation_domain_event` 必须使用 `DomainEvent`、`DomainEventRevision`、`event_revision_payload`、`stable_hash` 现有模型/哈希规则，并绑定到风险趋势点的主来源记录。
-- [ ] 审批采用期望 `object_version` 和条件状态更新；重复审批返回原有结果，过期证据将运行标记为 `stale`。
+- [x] 实现只读工具分发：风险上下文只从风险对象、活跃事件周期和趋势点读取；记录读取只接受数据库已有 ID；搜索只允许 `c_current`、`c_history`、`b_business`、`kol`。
+- [x] 使用现有 `query.py` 的 `evaluate_evidence` / `filter_effective_evidence` 等函数，将 MaxKB 命中文档解析回当前有效、来源版本一致的 `KnowledgeRecord`；不接受适配器返回的自由文本作为未经验证的证据。
+- [x] 为每次运行设 6 次工具调用和配置的总查询时限；每次 Ollama 调用使用 httpx 超时；序列化前裁剪轨迹字段，不存储凭据或完整提示词。
+- [x] 使用 Ollama `/api/chat` 的 JSON 输出格式；提示词要求只选择白名单工具，声明证据是数据不是指令，且最终草稿只能引用已验证证据。
+- [x] 按以下循环执行：载入风险上下文 → 将当前可用工具、已验证证据摘要和剩余预算传给模型 → 验证并执行一个只读工具 → 将已清理的调用和结果写入 `tool_trace_json` → 继续，直到模型选 `finish_investigation` 或达到调用/时间上限。
+- [x] 对每个工具提案验证 schema、参数、域、记录 ID、查询长度、调用预算和风险主体范围；无效提案按失败处理，不执行工具。
+- [x] 证据为空时保存 `no_evidence`；主体缺少品牌/车型时保存 `needs_clarification`；模型错误、超时或预算用尽时保存可公开错误码并禁止审批。
+- [x] 最终草稿限制每域最多 3 条证据，保存 `record_id`、`source_version`、证据字段路径和哈希引用，列出数据时间、证据缺口、限制及建议任务。
+- [x] 实现审批事务：再次校验证据版本和哈希；调用新增的 `create_investigation_domain_event(db, run, actor_id)` 创建/复用来源领域事件；用确定性候选键创建并接受关联候选；创建案例和任务；写入协调审计事件；更新运行结果 ID 和终态。事务失败时全部回滚。`create_investigation_domain_event` 必须使用 `DomainEvent`、`DomainEventRevision`、`event_revision_payload`、`stable_hash` 现有模型/哈希规则，并绑定到风险趋势点的主来源记录。
+- [x] 审批采用期望 `object_version` 和条件状态更新；重复审批返回原有结果，过期证据将运行标记为 `stale`。
 
 ### Task 3：鉴权端点和后台运行生命周期
 
@@ -100,13 +100,13 @@
 
 **步骤：**
 
-- [ ] 在 `create_app` 中注册三个使用现有 `auth` 和 `get_db` 依赖的路由。
-- [ ] 启动端点验证风险存在且有活跃事件周期、来源点和最新版本；相同请求键与风险主体返回同一运行，不同风险主体复用该键时返回冲突；检测 fake adapter 或无搜索接口，返回可操作的 `agent_unavailable` 错误。
-- [ ] 提交 `queued` 记录后用 FastAPI `BackgroundTasks` 安排 `run_risk_investigation`，将 session factory、adapter 和 settings 显式传入后台函数；限制同时执行的运行数量为 2。
-- [ ] 获取端点只返回已清理的轨迹和输出字段；错误响应遵循现有 `request_id` 和 `error_code` 格式。
-- [ ] 决定端点只接受 `awaiting_approval` 的运行，并调用 Task 2 的原子审批函数；拒绝只记录人类决定，不创建领域事件、候选、案例或任务。
-- [ ] 在应用 lifespan 的数据库迁移完成后，将残留 `queued`/`running` 记录更新为 `failed`，错误码为 `interrupted_by_restart`。
-- [ ] 后台函数每次状态变化都单独提交；确保任意未捕获异常被转换为安全错误码并持久化，不向用户返回模型堆栈或凭据。
+- [x] 在 `create_app` 中注册三个使用现有 `auth` 和 `get_db` 依赖的路由。
+- [x] 启动端点验证风险存在且有活跃事件周期、来源点和最新版本；相同请求键与风险主体返回同一运行，不同风险主体复用该键时返回冲突；检测 fake adapter 或无搜索接口，返回可操作的 `agent_unavailable` 错误。
+- [x] 提交 `queued` 记录后用 FastAPI `BackgroundTasks` 安排 `run_risk_investigation`，将 session factory、adapter 和 settings 显式传入后台函数；限制同时执行的运行数量为 2。
+- [x] 获取端点只返回已清理的轨迹和输出字段；错误响应遵循现有 `request_id` 和 `error_code` 格式。
+- [x] 决定端点只接受 `awaiting_approval` 的运行，并调用 Task 2 的原子审批函数；拒绝只记录人类决定，不创建领域事件、候选、案例或任务。
+- [x] 在应用 lifespan 的数据库迁移完成后，将残留 `queued`/`running` 记录更新为 `failed`，错误码为 `interrupted_by_restart`。
+- [x] 后台函数每次状态变化都单独提交；确保任意未捕获异常被转换为安全错误码并持久化，不向用户返回模型堆栈或凭据。
 
 ### Task 4：风险页面调查与审批 UI
 
@@ -122,12 +122,12 @@
 
 **步骤：**
 
-- [ ] 在 API 客户端添加三个 Agent 请求函数；使用现有 `request<T>` 处理 JSON、鉴权代理和错误。
-- [ ] 仅对活跃风险显示“Investigate”按钮；点击后创建随机请求键、启动运行并每秒读取状态，直到运行进入待审或终态；组件卸载时取消轮询。
-- [ ] 显示排队/运行/澄清/无证据/失败/过期状态，清楚区分部分失败和完整调查；不把模型错误详情或内部提示词显示给用户。
-- [ ] 显示简报、按域归类的证据（记录标题、来源版本、日期和来源链接）、数据限制、缺失领域和任务草案。
-- [ ] 对任务草案提供有限编辑：领域、任务类型、负责人和预期输出；审批请求携带当前 `object_version` 和编辑后的任务数组。
-- [ ] 只有 `awaiting_approval` 显示“Approve”与“Reject”；拒绝要求简短理由。批准成功显示案例链接，重复点击期间禁用按钮并刷新运行结果。
+- [x] 在 API 客户端添加三个 Agent 请求函数；使用现有 `request<T>` 处理 JSON、鉴权代理和错误。
+- [x] 仅对活跃风险显示“Investigate”按钮；点击后创建随机请求键、启动运行并每秒读取状态，直到运行进入待审或终态；组件卸载时取消轮询。
+- [x] 显示排队/运行/澄清/无证据/失败/过期状态，清楚区分部分失败和完整调查；不把模型错误详情或内部提示词显示给用户。
+- [x] 显示简报、按域归类的证据（记录标题、来源版本、日期和来源链接）、数据限制、缺失领域和任务草案。
+- [x] 对任务草案提供有限编辑：领域、任务类型、负责人和预期输出；审批请求携带当前 `object_version` 和编辑后的任务数组。
+- [x] 只有 `awaiting_approval` 显示“Approve”与“Reject”；拒绝要求简短理由。批准成功显示案例链接，重复点击期间禁用按钮并刷新运行结果。
 
 ### Task 5：运行说明和配置提示
 
@@ -138,10 +138,10 @@
 
 **步骤：**
 
-- [ ] 在 README 增加第一版 Agent 运行流程、MaxKB 搜索适配器和 Ollama 的前置条件，以及 fake adapter 下 Agent 不可用的说明。
-- [ ] 说明如何从活跃风险启动调查、查看证据、审批/拒绝和处理来源过期状态。
-- [ ] 说明调查是原型决策支持，所有正式协同对象都要人工审批；不声称已经验证市场或合规效果。
-- [ ] 不修改用户未授权的数据集或外部服务配置，不提交真实凭据。
+- [x] 在 README 增加第一版 Agent 运行流程、MaxKB 搜索适配器和 Ollama 的前置条件，以及 fake adapter 下 Agent 不可用的说明。
+- [x] 说明如何从活跃风险启动调查、查看证据、审批/拒绝和处理来源过期状态。
+- [x] 说明调查是原型决策支持，所有正式协同对象都要人工审批；不声称已经验证市场或合规效果。
+- [x] 不修改用户未授权的数据集或外部服务配置，不提交真实凭据。
 
 ## 手工验收场景
 

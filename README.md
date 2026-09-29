@@ -84,6 +84,16 @@ The integrated launcher uses these local endpoints by default:
 | RAG web interface | `http://127.0.0.1:8010/` |
 | Optional MaxKB service | `http://127.0.0.1:8080/` |
 
+## Cross-domain risk investigation Agent MVP
+
+The Alert page includes a manually started investigation for an active consumer risk. It searches the configured consumer, B2B, and KOL knowledge bases, checks returned documents against the current records and source versions, and saves a cited draft with proposed follow-up tasks. Operators can review and edit the task drafts before approval. Approval creates the coordination event, association candidate, case, and proposed tasks in one database transaction; rejection creates none of those records.
+
+To use this MVP, configure `RAG_HUB_ADAPTER=maxkb`, the `MAXKB_KB_C_CURRENT`, `MAXKB_KB_C_HISTORY`, `MAXKB_KB_B_BUSINESS`, and `MAXKB_KB_KOL` knowledge-base IDs, and a reachable local Ollama model through `RAG_HUB_OLLAMA_BASE_URL` and `RAG_HUB_OLLAMA_TEXT_MODEL`. The default `fake` adapter intentionally disables investigation so it cannot present simulated retrieval as real evidence. The database migration runs with the service startup.
+
+Open **Alert Coordination**, select an active risk, and choose **Investigate risk**. Review the evidence versions, domain gaps, limitations, and proposed tasks. Approve only when the sources are still current; a stale draft must be replaced by a new run. A process restart marks queued or running investigations as interrupted, so start a new run after the service returns.
+
+This is a research prototype for decision support. Model-generated summaries and tasks can be incomplete or wrong. Human review is required, and the MVP does not validate market impact, legal compliance, or investment decisions.
+
 ## Data and security
 
 The public snapshot excludes raw customer-review and creator spreadsheets, local databases, uploaded records, internal project documents, presentation screenshots, and the original Git history. The `.env.example` files are templates only. Keep API keys, service tokens, passwords, and real customer or creator records in local configuration and storage; do not commit them.

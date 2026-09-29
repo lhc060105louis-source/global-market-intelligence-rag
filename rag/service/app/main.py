@@ -8,7 +8,7 @@ from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
 import httpx
 from alembic import command
 from alembic.config import Config as AlembicConfig
@@ -17,6 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .adapters import FakeRAGAdapter, MaxKBRAGAdapter
@@ -26,9 +27,11 @@ from .database import Base, create_session_factory
 from .ingestion import IngestionError, ingest
 from .maintenance import ensure_resync_task, rebuild_records
 from .models import (
-    KnowledgeRecord, MaintenanceOperation, RagSyncTask, RecordAnnotation,
-    RiskEpisode, RiskObject, utc_now,
+    AgentRun, KnowledgeRecord, MaintenanceOperation, RagSyncTask, RecordAnnotation,
+    RiskEpisode, RiskObject, RiskTrendPoint, utc_now,
 )
+from .risk_investigation import approve_risk_investigation, run_risk_investigation
+from .risk_investigation_schemas import RiskInvestigationDecision, RiskInvestigationStart
 from .schemas import AnnotationCreate, IngestionEnvelope, MaintenanceRequest, RebuildRequest
 from .sync_dispatch import SyncDispatcher
 from .sync_tasks import process_pending_tasks, recover_timed_out_tasks, sync_summary
@@ -302,6 +305,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         _upgrade_database(settings.database_url)
+        with session_factory() as db:
+            db.query(AgentRun).filter(AgentRun.status.in_(["queued", "running"])).update(
+                {AgentRun.status: "failed", AgentRun.error_code: "interrupted_by_restart",
+                 AgentRun.completed_at: utc_now(), AgentRun.object_version: AgentRun.object_version + 1},
+                synchronize_session=False,
+            )
+            db.commit()
         if settings.auto_sync_on_ingest:
             recover_timed_out_tasks(session_factory)
             app.state.sync_dispatcher.kick()
@@ -1201,6 +1211,91 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "risk_type": risk.risk_type, "brand": risk.brand,
             "open_episode": next((item for item in episode_data if item["status"] == "open"), None),
             "episodes": episode_data,
+        })}
+
+    @app.post("/api/v1/agent/risk-investigations", status_code=202, dependencies=auth)
+    def start_risk_investigation(body: RiskInvestigationStart, request: Request,
+                                 background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+        if request.state.actor_type != "operator":
+            raise HTTPException(403, detail={"error_code": "operator_required", "message": "Only an operator can start an investigation."})
+        if settings.adapter == "fake" or not hasattr(app.state.adapter, "search"):
+            raise HTTPException(503, detail={"error_code": "agent_unavailable",
+                                             "message": "Configure the MaxKB search adapter and Ollama before starting an investigation."})
+        existing = db.scalar(select(AgentRun).where(AgentRun.request_key == body.request_key))
+        if existing:
+            if existing.risk_object_id != body.risk_object_id:
+                raise HTTPException(409, detail={"error_code": "request_key_conflict", "message": "request_key is already assigned to another risk."})
+            return {"request_id": request.state.request_id, "run_id": existing.id, "status": existing.status,
+                    "object_version": existing.object_version}
+        risk = db.get(RiskObject, body.risk_object_id)
+        if not risk:
+            raise HTTPException(404, detail={"error_code": "risk_not_found", "message": "Risk object not found"})
+        episode = db.scalar(select(RiskEpisode).where(RiskEpisode.risk_object_id == risk.id, RiskEpisode.status == "open"))
+        if not episode:
+            raise HTTPException(409, detail={"error_code": "risk_not_active", "message": "Investigation requires an active risk episode."})
+        points = db.scalars(select(RiskTrendPoint).where(RiskTrendPoint.episode_id == episode.id)
+                            .order_by(RiskTrendPoint.business_time.desc())).all()
+        if not points:
+            raise HTTPException(409, detail={"error_code": "risk_source_missing", "message": "No source records are available for this risk."})
+        versions: dict[str, int] = {}
+        for point in points:
+            versions.setdefault(point.source_record_id, point.source_version)
+        for record_id, source_version in versions.items():
+            record = db.get(KnowledgeRecord, record_id)
+            if not record or record.status != "active" or record.source_version != source_version:
+                raise HTTPException(409, detail={"error_code": "risk_source_stale", "message": "Refresh the risk source data before investigating."})
+        run = AgentRun(request_key=body.request_key, risk_object_id=risk.id, episode_id=episode.id,
+                       source_versions_json=versions, status="queued", tool_trace_json=[],
+                       initiated_by=request.headers.get("X-Actor-ID") or request.state.actor_type)
+        db.add(run)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            existing = db.scalar(select(AgentRun).where(AgentRun.request_key == body.request_key))
+            if existing and existing.risk_object_id == body.risk_object_id:
+                return {"request_id": request.state.request_id, "run_id": existing.id,
+                        "status": existing.status, "object_version": existing.object_version}
+            raise HTTPException(409, detail={"error_code": "request_key_conflict", "message": "request_key is already assigned to another investigation."})
+        db.refresh(run)
+        background_tasks.add_task(run_risk_investigation, run.id, session_factory=session_factory,
+                                  adapter=app.state.adapter, settings=settings)
+        return {"request_id": request.state.request_id, "run_id": run.id, "status": run.status,
+                "object_version": run.object_version}
+
+    @app.get("/api/v1/agent/risk-investigations/{run_id}", dependencies=auth)
+    def get_risk_investigation(run_id: str, request: Request, db: Session = Depends(get_db)):
+        run = db.get(AgentRun, run_id)
+        if not run:
+            raise HTTPException(404, detail={"error_code": "run_not_found", "message": "Investigation run not found"})
+        return {"request_id": request.state.request_id, "run": jsonable_encoder({
+            "id": run.id, "risk_object_id": run.risk_object_id, "episode_id": run.episode_id,
+            "status": run.status, "object_version": run.object_version,
+            "tool_trace": run.tool_trace_json, "draft": run.draft_json,
+            "decision": run.decision, "decision_reason": run.decision_reason,
+            "event_id": run.event_id, "candidate_id": run.candidate_id, "case_id": run.case_id,
+            "error_code": run.error_code, "created_at": run.created_at,
+            "completed_at": run.completed_at, "decided_at": run.decided_at,
+        })}
+
+    @app.post("/api/v1/agent/risk-investigations/{run_id}/decision", dependencies=auth)
+    def decide_risk_investigation(run_id: str, body: RiskInvestigationDecision,
+                                  request: Request, db: Session = Depends(get_db)):
+        if request.state.actor_type != "operator":
+            raise HTTPException(403, detail={"error_code": "operator_required", "message": "Only an operator can approve or reject an investigation."})
+        try:
+            run = approve_risk_investigation(
+                db, run_id=run_id, body=body,
+                actor_id=request.headers.get("X-Actor-ID") or request.state.actor_type,
+            )
+        except ValueError as exc:
+            code = str(exc)
+            status_code = 404 if code == "run_not_found" else 409 if "conflict" in code or "awaiting" in code else 422
+            raise HTTPException(status_code, detail={"error_code": code, "message": code.replace("_", " ")}) from exc
+        return {"request_id": request.state.request_id, "run": jsonable_encoder({
+            "id": run.id, "status": run.status, "object_version": run.object_version,
+            "decision": run.decision, "event_id": run.event_id, "candidate_id": run.candidate_id,
+            "case_id": run.case_id, "error_code": run.error_code,
         })}
 
     @app.post("/api/v1/records/{record_id}/annotations", status_code=201, dependencies=auth)
