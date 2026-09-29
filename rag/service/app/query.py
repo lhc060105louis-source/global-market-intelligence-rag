@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from .models import KnowledgeRecord, RagDocumentMapping
 from .query_planner import QueryPlan, score_candidate
 
-REFUSAL = "当前知识库未检索到可支持回答的内容"
+REFUSAL = "No evidence supporting an answer was found in the current knowledge base."
 OUTPUT_FIELDS = (
-    "综合结论", "C端消费者信号", "B端商业影响", "KOL传播与合作影响",
-    "文字行动建议", "简化证据", "数据时间", "结论边界",
+    "summary", "consumer_signal", "business_impact", "kol_impact",
+    "action_recommendations", "evidence", "data_time", "limitations",
 )
 TARGETS = ("c_current", "c_history", "b_business", "kol")
 SEMANTIC_FIELD_NAMES = ("summary", "consumer_signal", "business_impact", "kol_impact", "actions")
@@ -26,9 +26,9 @@ SEMANTIC_DOMAIN_FIELDS = {
 }
 SEMANTIC_FIELD_SOURCES = frozenset({"maxkb", "deterministic", "none"})
 SEMANTIC_NO_EVIDENCE_NOTICES = {
-    "consumer_signal": "当前选定范围内没有可支持 C 端消费者信号的有效证据。",
-    "business_impact": "当前选定范围内没有可支持 B 端商业影响的有效证据。",
-    "kol_impact": "当前选定范围内没有可支持 KOL 传播与合作影响的有效证据。",
+    "consumer_signal": "No valid evidence supports consumer signals in the selected scope.",
+    "business_impact": "No valid evidence supports business impact in the selected scope.",
+    "kol_impact": "No valid evidence supports creator impact in the selected scope.",
 }
 
 
@@ -143,8 +143,8 @@ def extract_chat_error(payload: Any) -> str:
     message = payload.get("message")
     if isinstance(message, str) and message.strip():
         normalized = message.lower()
-        if ("model" in normalized or "模型" in normalized) and any(
-            marker in normalized for marker in ("not found", "not exist", "not installed", "missing", "unavailable", "不存在", "未找到")
+    if "model" in normalized and any(
+        marker in normalized for marker in ("not found", "not exist", "not installed", "missing", "unavailable")
         ):
             return message.strip()
     data = payload.get("data")
@@ -155,7 +155,7 @@ def extract_chat_error(payload: Any) -> str:
 
 def answer_structured_question(question: str, evidence: list[Evidence]) -> str:
     normalized = "".join(question.lower().split())
-    if any(token in normalized for token in ("有哪些品牌", "什么品牌", "品牌有哪些", "whichbrands")):
+    if any(token in normalized for token in ("which brands", "what brands", "list brands", "whichbrands")):
         brands: set[str] = set()
         for item in evidence:
             for line in item.text.splitlines():
@@ -163,9 +163,9 @@ def answer_structured_question(question: str, evidence: list[Evidence]) -> str:
                     value = line.split(":", 1)[1].strip()
                     if value and value.upper() not in {"UNKNOWN", "UNKNOWN_BRAND", "N/A", "NONE"}:
                         brands.add(value)
-        return "根据当前检索到的有效证据，涉及的品牌有：" + "、".join(sorted(brands)) + "。" if brands else "当前检索到的有效证据中没有明确的品牌字段。"
+        return "Brands identified in the validated evidence: " + ", ".join(sorted(brands)) + "." if brands else "The validated evidence does not contain an explicit brand field."
 
-    if any(token in normalized for token in ("有哪些情绪", "什么情绪", "情绪有哪些", "whichemotions")):
+    if any(token in normalized for token in ("which emotions", "what emotions", "list emotions", "whichemotions")):
         emotions: set[str] = set()
         for item in evidence:
             for line in item.text.splitlines():
@@ -185,9 +185,9 @@ def answer_structured_question(question: str, evidence: list[Evidence]) -> str:
                         except (SyntaxError, ValueError):
                             pass
                     emotions.update(str(value).strip() for value in values if str(value).strip())
-        return "根据当前检索到的有效证据，包含的情绪有：" + "、".join(sorted(emotions)) + "。" if emotions else "当前检索到的有效证据中没有明确的情绪字段。"
+        return "Emotions found in the validated evidence: " + ", ".join(sorted(emotions)) + "." if emotions else "The validated evidence does not contain an explicit sentiment field."
 
-    if any(token in normalized for token in ("中立情绪占比", "中性情绪占比", "neutralratio", "neutral_ratio")):
+    if any(token in normalized for token in ("neutral sentiment share", "neutral ratio", "neutralratio", "neutral_ratio")):
         weighted_total = 0.0
         signal_total = 0.0
         for item in evidence:
@@ -210,9 +210,9 @@ def answer_structured_question(question: str, evidence: list[Evidence]) -> str:
                 weighted_total += neutral_ratio * signal_count
                 signal_total += signal_count
         if signal_total == 0:
-            return "当前检索到的有效证据中没有明确的中立情绪占比字段。"
+            return "The validated evidence does not contain an explicit neutral sentiment share."
         percentage = weighted_total / signal_total * 100
-        return f"根据当前检索到的有效证据，中立情绪占比为：{percentage:.2f}".rstrip("0").rstrip(".") + "%。"
+        return f"Neutral sentiment share in the validated evidence: {percentage:.2f}".rstrip("0").rstrip(".") + "% ."
     return ""
 
 
@@ -382,7 +382,7 @@ def format_evidence_context(evidence: list[Evidence], *, max_chars: int) -> str:
     prefixes = {"c_current": "C", "c_history": "C", "b_business": "B", "kol": "KOL"}
     counters: dict[str, int] = {"C": 0, "B": 0, "KOL": 0}
     domain_order = ("c", "b", "kol")
-    domain_labels = {"c": "C端消费者证据", "b": "B端商业证据", "kol": "KOL传播与合作证据"}
+    domain_labels = {"c": "Consumer evidence", "b": "Business evidence", "kol": "Creator and partnership evidence"}
     grouped: dict[str, list[str]] = {domain: [] for domain in domain_order}
     for item in evidence:
         prefix = prefixes.get(item.target, "UNKNOWN")
@@ -393,7 +393,7 @@ def format_evidence_context(evidence: list[Evidence], *, max_chars: int) -> str:
             else item.target
         )
         counters[prefix] = counters.get(prefix, 0) + 1
-        block = f"[证据域: {item.target}]\n[{prefix}{counters[prefix]}]\n{item.text}"
+        block = f"[Evidence domain: {item.target}]\n[{prefix}{counters[prefix]}]\n{item.text}"
         grouped.setdefault(domain, []).append(block)
     sections = [
         f"## {domain_labels[domain]}\n" + "\n\n".join(grouped[domain])
@@ -424,11 +424,11 @@ def _extract_json_object(text: str) -> dict[str, Any]:
 
 
 _SEMANTIC_FIELD_ALIASES = {
-    "summary": ("summary", "综合结论"),
-    "consumer_signal": ("consumer_signal", "C端消费者信号"),
-    "business_impact": ("business_impact", "B端商业影响"),
-    "kol_impact": ("kol_impact", "KOL传播与合作影响"),
-    "actions": ("actions", "文字行动建议"),
+    "summary": ("summary", "summary"),
+    "consumer_signal": ("consumer_signal", "consumer_signal"),
+    "business_impact": ("business_impact", "business_impact"),
+    "kol_impact": ("kol_impact", "kol_impact"),
+    "actions": ("actions", "action_recommendations"),
 }
 _SEMANTIC_DOMAIN_WRAPPER_KEYS = {
     "consumer_signal": frozenset({"c_current", "c_history"}),
@@ -450,7 +450,7 @@ def _semantic_payload_value(payload: Mapping[str, Any], field: str) -> tuple[boo
 
 def _split_semantic_action_text(value: str) -> list[str]:
     actions: list[str] = []
-    for line in value.replace("；", ";").splitlines():
+    for line in value.splitlines():
         actions.extend(part.strip() for part in line.split(";") if part.strip())
     return actions
 
@@ -563,15 +563,15 @@ _SEMANTIC_PLACEHOLDER_VALUES = frozenset({
     "c", "c_current", "c_history", "consumer", "consumer_signal",
     "b", "b_business", "business", "business_impact",
     "kol", "kol_impact", "kol_current",
-    "c端", "c端消费者信号", "b端", "b端商业影响", "kol端", "kol传播与合作影响",
+    "consumer signals", "business impact", "creator reach and partnership impact",
     "null", "none", "n/a",
 })
 
 
 _SEMANTIC_ACTION_DOMAIN_MARKERS = {
-    "c": ("c_current", "c_history", "c端", "消费者", "用户", "评论", "情绪", "维修", "投诉", "抱怨", "售后", "口碑"),
-    "b": ("b_business", "b端", "商业影响", "法规", "合规", "afir", "cpo", "充电", "电网", "储能", "客户项目"),
-    "kol": ("kol", "kol端", "网红", "达人", "传播", "曝光", "内容创作者"),
+    "c": ("c_current", "c_history", "consumer", "user", "review", "comment", "sentiment", "repair", "complaint", "after-sales", "reputation"),
+    "b": ("b_business", "business impact", "regulation", "compliance", "afir", "cpo", "charging", "power grid", "energy storage", "client project"),
+    "kol": ("kol", "influencer", "creator", "reach", "exposure", "content creator"),
 }
 
 
@@ -619,9 +619,9 @@ def validate_semantic_draft(draft: SemanticDraft, evidence: list[Evidence], sele
 
 
 _SEMANTIC_VALUE_DOMAIN_MARKERS = {
-    "c": ("c端", "消费者", "用户", "评论", "情绪", "售后", "口碑"),
-    "b": ("b端", "商业影响", "法规", "合规", "采购", "客户项目", "充电", "电网", "储能", "cpo"),
-    "kol": ("kol", "网红", "达人", "传播", "合作", "曝光", "内容创作者"),
+    "c": ("consumer", "user", "review", "comment", "sentiment", "after-sales", "reputation"),
+    "b": ("business impact", "regulation", "compliance", "procurement", "client project", "charging", "power grid", "energy storage", "cpo"),
+    "kol": ("kol", "influencer", "creator", "reach", "partnership", "exposure", "content creator"),
 }
 
 
@@ -795,28 +795,28 @@ _DETERMINISTIC_TARGET_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 _DETERMINISTIC_FIELD_LABELS = {
-    "dimension": "维度", "brand": "品牌", "vehicle_model": "车型", "region": "地区",
-    "business_date": "业务日期", "signal_count": "信号数", "emotion_distribution": "情绪分布",
-    "trend": "趋势", "risk_status": "风险状态", "entry_type": "条目类型", "title": "标题",
-    "published_summary": "发布摘要", "regions": "适用地区", "tags": "标签",
-    "business_impact": "商业影响", "recommended_action": "建议动作", "effective_at": "生效时间",
-    "kol_id": "KOL ID", "display_name": "名称", "primary_platform": "主要平台",
-    "audience_regions": "受众地区", "content_categories": "内容类别", "commercial_score": "商业评分",
-    "risk_score": "风险评分", "risk_level": "风险等级", "risk_tags": "风险标签",
-    "cooperation_conclusion": "合作结论", "project": "项目", "final_stage": "最终阶段",
-    "distribution_conclusion": "传播结论", "performance_summary": "表现摘要",
-    "public_opinion_conclusion": "舆情结论", "review_conclusion": "复核结论",
-    "applicable_period": "适用周期",
+    "dimension": "Dimension", "brand": "Brand", "vehicle_model": "Vehicle model", "region": "Region",
+    "business_date": "Business date", "signal_count": "Signal count", "emotion_distribution": "Sentiment distribution",
+    "trend": "Trend", "risk_status": "Risk status", "entry_type": "Entry type", "title": "Title",
+    "published_summary": "Published summary", "regions": "Applicable regions", "tags": "Tags",
+    "business_impact": "Business impact", "recommended_action": "Recommended action", "effective_at": "Effective at",
+    "kol_id": "KOL ID", "display_name": "Name", "primary_platform": "Primary platform",
+    "audience_regions": "Audience regions", "content_categories": "Content categories", "commercial_score": "Commercial score",
+    "risk_score": "Risk score", "risk_level": "Risk level", "risk_tags": "Risk tags",
+    "cooperation_conclusion": "Partnership conclusion", "project": "Project", "final_stage": "Final stage",
+    "distribution_conclusion": "Distribution conclusion", "performance_summary": "Performance summary",
+    "public_opinion_conclusion": "Public opinion conclusion", "review_conclusion": "Review conclusion",
+    "applicable_period": "Applicable period",
 }
 
 _DETERMINISTIC_RESULT_FIELDS = {
-    "positive_ratio": "正向占比", "negative_ratio": "负向占比", "neutral_ratio": "中立占比",
-    "trend_direction": "趋势", "risk_status": "风险状态", "risk_level": "风险等级",
-    "part": "部件", "risk_type": "风险类型", "hit_count": "命中数", "threshold": "阈值",
-    "threshold_exceeded": "是否超过阈值", "first_hit_at": "首次命中时间", "nps_value": "NPS",
-    "change_from_previous": "较前期变化", "promoter_ratio": "推荐者占比", "passive_ratio": "被动者占比",
-    "detractor_ratio": "贬损者占比", "complaints": "投诉", "topic_name": "投诉主题",
-    "frequency": "频次", "average_sentiment_intensity": "平均情绪强度", "attitude": "品牌态度",
+    "positive_ratio": "Positive share", "negative_ratio": "Negative share", "neutral_ratio": "Neutral share",
+    "trend_direction": "Trend direction", "risk_status": "Risk status", "risk_level": "Risk level",
+    "part": "Component", "risk_type": "Risk type", "hit_count": "Hit count", "threshold": "Threshold",
+    "threshold_exceeded": "Threshold exceeded", "first_hit_at": "First detected", "nps_value": "NPS",
+    "change_from_previous": "Change from previous period", "promoter_ratio": "Promoter share", "passive_ratio": "Passive share",
+    "detractor_ratio": "Detractor share", "complaints": "Complaints", "topic_name": "Complaint topic",
+    "frequency": "Frequency", "average_sentiment_intensity": "Average sentiment intensity", "attitude": "Brand sentiment",
 }
 
 
@@ -885,12 +885,12 @@ def _deterministic_facts(item: Evidence) -> list[str]:
 
 
 def _deterministic_domain_summary(domain: str, evidence: list[Evidence]) -> str:
-    labels = {"c": "C端", "b": "B端", "kol": "KOL"}
+    labels = {"c": "Consumer", "b": "Business", "kol": "Creator"}
     lines: list[str] = []
     for index, item in enumerate(evidence, 1):
         facts = _deterministic_facts(item)
-        lines.append(f"记录{index}：" + ("；".join(facts) if facts else "已校验结构化记录存在，但未提取到可摘要字段"))
-    return f"{labels[domain]}证据兜底（排名前{len(evidence)}条）：" + "；".join(lines)
+        lines.append(f"Record {index}: " + ("; ".join(facts) if facts else "Validated structured records are available, but no fields suitable for summarization were found."))
+    return f"{labels[domain]} evidence-based fallback (top {len(evidence)} records): " + "; ".join(lines)
 
 
 def format_semantic_evidence_context(
@@ -914,7 +914,7 @@ def format_semantic_evidence_context(
         return ""
 
     prefixes = {"c": "C", "b": "B", "kol": "KOL"}
-    labels = {"c": "C端消费者证据", "b": "B端商业证据", "kol": "KOL传播与合作证据"}
+    labels = {"c": "Consumer evidence", "b": "Business evidence", "kol": "Creator and partnership evidence"}
     grouped: dict[str, list[Evidence]] = {domain: [] for domain in labels}
     for item in limit_evidence_per_domain(evidence, max_per_domain=max_per_domain):
         domain = (
@@ -934,7 +934,7 @@ def format_semantic_evidence_context(
         domain_blocks: list[str] = []
         for index, item in enumerate(items, 1):
             facts = _deterministic_facts(item)
-            fact_text = "；".join(facts) if facts else "已校验结构化记录存在，但未提取到可摘要字段"
+            fact_text = "; ".join(facts) if facts else "Validated structured records are available, but no fields suitable for summarization were found."
             domain_blocks.append(f"[{prefix}{index}] {fact_text}")
         blocks[domain] = domain_blocks
 
@@ -985,15 +985,15 @@ def deterministic_semantic_draft(
         elif item.target == "kol":
             by_domain["kol"].append(item)
     present = [domain for domain in ("c", "b", "kol") if by_domain[domain]]
-    summary_parts = [f"{domain.upper()}端{len(by_domain[domain])}条" if domain != "kol" else f"KOL {len(by_domain[domain])}条" for domain in present]
+    summary_parts = [f"{domain.upper()}: {len(by_domain[domain])} records" for domain in present]
     final_summary = summary or (
-        "证据兜底：已按业务域分别整理已校验的结构化字段（" + "；".join(summary_parts) + "）。"
-        "未对证据之外的信息作推断。"
+        "Evidence-based fallback: validated structured fields by domain (" + "; ".join(summary_parts) + "). "
+        "No information beyond the evidence was inferred."
     )
     actions_by_domain = {
-        "c": "复核 C 端消费者信号对应的原始评论、情绪标签和统计口径",
-        "b": "核对受影响客户项目，并由项目负责人确认沟通口径",
-        "kol": "复核 KOL 内容与合作状态，确认继续、调整或暂缓策略",
+        "c": "Review the source consumer comments, sentiment labels, and statistical methodology.",
+        "b": "Check affected client projects and ask each project owner to confirm the communication approach.",
+        "kol": "Review creator content and partnership status, then confirm whether to continue, adjust, or pause.",
     }
     return SemanticDraft(
         final_summary,
@@ -1020,19 +1020,19 @@ def structured_semantic_draft(answer: str, evidence: list[Evidence]) -> Semantic
 
 def build_legacy_prd_output(*, answer: str, evidence: list[Evidence], selected: list[str]) -> dict[str, Any]:
     if not evidence:
-        return {"综合结论": REFUSAL, "C端消费者信号": None, "B端商业影响": None,
-                "KOL传播与合作影响": None, "文字行动建议": None, "简化证据": [],
-                "数据时间": [], "结论边界": "未检索到经主库校验的有效证据。"}
+        return {"summary": REFUSAL, "consumer_signal": None, "business_impact": None,
+                "kol_impact": None, "action_recommendations": None, "evidence": [],
+                "data_time": [], "limitations": "No active evidence validated by the primary database was found."}
     sources = [{"record_id": item.record_id, "target_knowledge_base": item.target, "score": item.score,
                 "source_version": item.source_version} for item in evidence]
     evidence_targets = {item.target for item in evidence}
     actions = []
     if evidence_targets.intersection({"c_current", "c_history"}):
-        actions.append("复核 C 端消费者信号对应的原始评论、情绪标签和统计口径")
+        actions.append("Review the source consumer comments, sentiment labels, and statistical methodology.")
     if "b_business" in evidence_targets:
-        actions.append("核对受影响客户项目，并由项目负责人确认沟通口径")
+        actions.append("Check affected client projects and ask each project owner to confirm the communication approach.")
     if "kol" in evidence_targets:
-        actions.append("复核 KOL 内容与合作状态，确认继续、调整或暂缓策略")
+        actions.append("Review creator content and partnership status, then confirm whether to continue, adjust, or pause.")
     data_times = []
     for item in evidence:
         for line in item.text.splitlines():
@@ -1041,14 +1041,14 @@ def build_legacy_prd_output(*, answer: str, evidence: list[Evidence], selected: 
             elif line.startswith("effective_at:"):
                 data_times.append(line.split(":", 1)[1].strip())
     return {
-        "综合结论": answer or REFUSAL,
-        "C端消费者信号": answer if evidence_targets.intersection({"c_current", "c_history"}) else None,
-        "B端商业影响": answer if "b_business" in evidence_targets else None,
-        "KOL传播与合作影响": answer if "kol" in evidence_targets else None,
-        "文字行动建议": "；".join(actions) + "。" if actions else "本次没有可生成行动建议的有效证据。",
-        "简化证据": sources,
-        "数据时间": data_times,
-        "结论边界": "仅基于本次选域内、主库当前有效且版本一致的检索副本。",
+        "summary": answer or REFUSAL,
+        "consumer_signal": answer if evidence_targets.intersection({"c_current", "c_history"}) else None,
+        "business_impact": answer if "b_business" in evidence_targets else None,
+        "kol_impact": answer if "kol" in evidence_targets else None,
+        "action_recommendations": "; ".join(actions) if actions else "There is no validated evidence for an action recommendation.",
+        "evidence": sources,
+        "data_time": data_times,
+        "limitations": "Based only on retrieved copies that are active in the primary database and have matching versions for the selected scope.",
     }
 
 
@@ -1072,14 +1072,14 @@ def build_prd_output(
                 value = line.split(":", 1)[1].strip()
             if value and value not in data_times:
                 data_times.append(value)
-    actions = "；".join(validated.actions) if validated.actions else "当前无法生成经校验的行动建议。"
+    actions = "; ".join(validated.actions) if validated.actions else "No validated action recommendation can be generated at this time."
     return {
-        "综合结论": validated.summary,
-        "C端消费者信号": validated.consumer_signal if "c" in evidence_domains else None,
-        "B端商业影响": validated.business_impact if "b" in evidence_domains else None,
-        "KOL传播与合作影响": validated.kol_impact if "kol" in evidence_domains else None,
-        "文字行动建议": actions,
-        "简化证据": sources,
-        "数据时间": data_times,
-        "结论边界": "仅基于本次选域内、主库当前有效且版本一致的检索副本。",
+        "summary": validated.summary,
+        "consumer_signal": validated.consumer_signal if "c" in evidence_domains else None,
+        "business_impact": validated.business_impact if "b" in evidence_domains else None,
+        "kol_impact": validated.kol_impact if "kol" in evidence_domains else None,
+        "action_recommendations": actions,
+        "evidence": sources,
+        "data_time": data_times,
+        "limitations": "Based only on retrieved copies that are active in the primary database and have matching versions for the selected scope.",
     }

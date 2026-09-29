@@ -31,9 +31,9 @@ MaxKB and Ollama are optional external services. The public repository contains 
 
 | Path | Role |
 | --- | --- |
-| `C端/情感分析/VOC情感分析` | Customer review analysis and VOC event preparation. |
-| `B端政企结合/week7/compliance-sales-support` | B2B compliance, intelligence, and opportunity-support service. |
-| `KOL业务/KOL出海筛选平台/app` | Creator assessment and collaboration platform. |
+| [Customer VOC analysis](customer-voc/sentiment-analysis/voc-sentiment-analysis) | Customer review analysis and VOC event preparation. |
+| [B2B compliance support](b2b-public-sector/week7/compliance-sales-support) | Compliance intelligence and opportunity support for public-sector and enterprise projects. |
+| [Global creator assessment](creator-intelligence/global-creator-assessment-platform/app) | Creator assessment and collaboration platform. |
 | `overseas_shared` | Shared data contracts and event types. |
 | `rag/service` | FastAPI ingestion, query, record, and coordination APIs. |
 | `rag/frontend-v2` | React and TypeScript RAG interface with a same-origin proxy. |

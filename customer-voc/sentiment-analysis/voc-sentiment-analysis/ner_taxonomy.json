@@ -1,0 +1,182 @@
+{
+  "_description": "Two-level NER taxonomy (part + symptom) aligned to 16 business topics. Each entry: standardised name + 2-3 real C-end aliases. For LLM prompt reference and local normalisation.",
+  "taxonomy": {
+    "app_software": {
+      "label": "App Experience",
+      "parts": [
+        { "name": "mobile_app", "aliases": ["app", "phone app", "the app"] },
+        { "name": "app_login", "aliases": ["login", "sign in"] },
+        { "name": "app_remote_control", "aliases": ["remote start", "remote lock", "preconditioning"] },
+        { "name": "app_connectivity", "aliases": ["app won't connect", "car offline in app", "bluetooth pairing"] }
+      ],
+      "symptoms": [
+        { "name": "app_crash", "aliases": ["app crashes", "keeps crashing", "force close"] },
+        { "name": "app_slow", "aliases": ["app freezing", "takes forever to load", "lag"] },
+        { "name": "app_login_failure", "aliases": ["can't log in", "login failed", "can't access account"] },
+        { "name": "app_remote_failure", "aliases": ["remote start not working", "can't lock from app", "app won't unlock car"] },
+        { "name": "app_connection_lost", "aliases": ["app won't connect to car", "can't sync", "connection lost"] }
+      ]
+    },
+    "ota_software": {
+      "label": "OTA and Software Updates",
+      "parts": [
+        { "name": "infotainment_unit", "aliases": ["infotainment", "head unit", "screen"] },
+        { "name": "ecu", "aliases": ["ecu", "car computer", "control module"] },
+        { "name": "ota_module", "aliases": ["ota", "software update", "update system"] }
+      ],
+      "symptoms": [
+        { "name": "ota_update_failed", "aliases": ["update failed", "update stuck", "won't install"] },
+        { "name": "ota_download_slow", "aliases": ["downloading forever", "update taking ages", "download stuck"] },
+        { "name": "ota_bricked", "aliases": ["bricked after update", "car won't start after update", "dead after update"] },
+        { "name": "ota_bug_new", "aliases": ["new bug after update", "update broke it", "was fine before update"] },
+        { "name": "ota_rollout_delayed", "aliases": ["still waiting for update", "everyone got it but me", "update not available"] }
+      ]
+    },
+    "battery_range": {
+      "label": "Battery Range",
+      "parts": [
+        { "name": "battery_pack", "aliases": ["battery", "battery pack", "hv battery"] },
+        { "name": "battery_cell", "aliases": ["cell", "battery cell"] },
+        { "name": "bms", "aliases": ["bms", "battery management"] },
+        { "name": "electric_motor", "aliases": ["motor", "electric motor", "drive motor"] },
+        { "name": "regen_braking", "aliases": ["regen", "regenerative braking", "one pedal driving"] },
+        { "name": "heat_pump", "aliases": ["heat pump", "heatpump"] }
+      ],
+      "symptoms": [
+        { "name": "range_too_low", "aliases": ["range is terrible", "nowhere near claimed", "real world range"] },
+        { "name": "winter_range_drop", "aliases": ["winter range", "range dropped in cold", "cold weather range"] },
+        { "name": "battery_degradation", "aliases": ["battery degraded", "lost capacity", "battery health"] },
+        { "name": "range_display_inaccurate", "aliases": ["range display wrong", "guessometer is off", "range jumps around"] },
+        { "name": "high_consumption", "aliases": ["high consumption", "draining fast", "battery draining quickly"] },
+        { "name": "range_anxiety", "aliases": ["range anxiety", "worried about range", "scared to run out"] }
+      ]
+    },
+    "charging": {
+      "label": "Charging Experience",
+      "parts": [
+        { "name": "charge_port", "aliases": ["charge port", "charge socket", "charge flap"] },
+        { "name": "onboard_charger", "aliases": ["onboard charger", "obc"] },
+        { "name": "charging_cable", "aliases": ["charging cable", "type 2 cable", "granny charger"] },
+        { "name": "wallbox", "aliases": ["wallbox", "home charger", "evse"] },
+        { "name": "public_charger", "aliases": ["public charger", "fast charger", "supercharger"] },
+        { "name": "charging_app", "aliases": ["charging app", "rfid card", "charge card"] }
+      ],
+      "symptoms": [
+        { "name": "charging_slow", "aliases": ["charging slow", "takes forever to charge", "charge speed dropped"] },
+        { "name": "charging_failed", "aliases": ["won't charge", "charging failed", "charge error"] },
+        { "name": "charger_incompatible", "aliases": ["charger not compatible", "handshake failed", "can't use this charger"] },
+        { "name": "charging_interrupted", "aliases": ["charging stopped midway", "charging keeps stopping", "cuts out"] },
+        { "name": "charge_port_issue", "aliases": ["charge port stuck", "can't open charge flap", "plug stuck"] },
+        { "name": "charger_broken", "aliases": ["charger broken", "out of order", "charger not working"] }
+      ]
+    },
+    "air_conditioning": {
+      "label": "Climate and Cabin",
+      "parts": [
+        { "name": "ac_compressor", "aliases": ["ac compressor", "air con compressor"] },
+        { "name": "heat_pump", "aliases": ["heat pump", "heatpump"] },
+        { "name": "ptc_heater", "aliases": ["ptc heater", "cabin heater", "electric heater"] },
+        { "name": "cabin_filter", "aliases": ["cabin filter", "pollen filter"] },
+        { "name": "blower_motor", "aliases": ["blower", "fan motor", "cabin fan"] },
+        { "name": "climate_control_panel", "aliases": ["climate control", "ac controls", "temperature controls"] },
+        { "name": "seat_heater", "aliases": ["heated seats", "seat heating"] },
+        { "name": "seat_ventilation", "aliases": ["ventilated seats", "cooled seats"] },
+        { "name": "steering_wheel_heater", "aliases": ["heated steering wheel"] },
+        { "name": "cabin_insulation", "aliases": ["insulation", "door seals", "weather stripping"] }
+      ],
+      "symptoms": [
+        { "name": "ac_not_cooling", "aliases": ["ac not cold", "air con not cooling", "ac blowing warm air"] },
+        { "name": "heating_not_working", "aliases": ["no heat", "heater not working", "blowing cold air"] },
+        { "name": "weak_airflow", "aliases": ["weak airflow", "barely blowing", "fan weak"] },
+        { "name": "ac_smell", "aliases": ["bad smell ac", "musty smell from vents", "smelly air conditioning"] },
+        { "name": "fogging", "aliases": ["windows fogging", "windscreen fogging", "misting up"] },
+        { "name": "seat_heater_failure", "aliases": ["heated seat not working", "seat heater broken"] },
+        { "name": "temperature_inconsistent", "aliases": ["temperature uneven", "climate inconsistent"] }
+      ]
+    },
+    "safety_recall": {
+      "label": "Safety and Recall",
+      "parts": [
+        { "name": "brake_pads", "aliases": ["brake pads", "pads"] },
+        { "name": "brake_disc", "aliases": ["brake disc", "rotor", "brake rotor"] },
+        { "name": "brake_caliper", "aliases": ["caliper", "brake caliper"] },
+        { "name": "brake_fluid", "aliases": ["brake fluid"] },
+        { "name": "abs_module", "aliases": ["abs", "abs module", "abs pump"] },
+        { "name": "parking_brake", "aliases": ["parking brake", "handbrake", "epb"] },
+        { "name": "airbag", "aliases": ["airbag", "srs airbag"] },
+        { "name": "seatbelt", "aliases": ["seatbelt", "seat belt", "safety belt"] },
+        { "name": "steering_rack", "aliases": ["steering rack", "steering system"] },
+        { "name": "suspension", "aliases": ["suspension", "shock absorber", "strut"] },
+        { "name": "tyres", "aliases": ["tyres", "tires", "tyre"] }
+      ],
+      "symptoms": [
+        { "name": "brake_noise", "aliases": ["brake noise", "brakes squeaking", "brake squeal"] },
+        { "name": "brake_fade", "aliases": ["brakes not stopping", "brake fade", "soft brake pedal"] },
+        { "name": "brake_grinding", "aliases": ["grinding brakes", "grinding noise when braking"] },
+        { "name": "phantom_braking", "aliases": ["phantom braking", "car slammed brakes for no reason", "ghost braking"] },
+        { "name": "airbag_warning_light", "aliases": ["airbag light on", "airbag warning", "srs light"] },
+        { "name": "steering_pulling", "aliases": ["steering pulling", "car pulling to one side"] },
+        { "name": "battery_fire", "aliases": ["battery fire", "caught fire while charging", "car burst into flames"] },
+        { "name": "battery_swelling", "aliases": ["battery swelling", "battery bulging"] },
+        { "name": "sudden_power_loss", "aliases": ["lost all power", "engine cut out", "complete power loss"] },
+        { "name": "steering_failure", "aliases": ["steering locked", "steering failed", "lost steering"] },
+        { "name": "wheel_detachment", "aliases": ["wheel came off", "wheel fell off"] },
+        { "name": "suspension_collapse", "aliases": ["suspension collapsed", "spring broke"] }
+      ]
+    },
+    "vehicle_quality": {
+      "label": "Vehicle Quality",
+      "parts": [
+        { "name": "door", "aliases": ["door", "doors", "door handle"] },
+        { "name": "window", "aliases": ["window", "windows", "power window"] },
+        { "name": "paint", "aliases": ["paint", "paintwork", "clear coat"] },
+        { "name": "body_panel", "aliases": ["body panel", "panel", "panel gap"] },
+        { "name": "headlight", "aliases": ["headlight", "headlamp", "led light"] },
+        { "name": "taillight", "aliases": ["taillight", "rear light", "brake light"] },
+        { "name": "wiper", "aliases": ["wiper", "windscreen wiper", "wiper blade"] },
+        { "name": "sunroof", "aliases": ["sunroof", "panoramic roof", "glass roof"] },
+        { "name": "boot", "aliases": ["boot", "trunk", "tailgate"] },
+        { "name": "bonnet", "aliases": ["bonnet", "hood", "frunk"] },
+        { "name": "wing_mirror", "aliases": ["wing mirror", "side mirror", "door mirror"] }
+      ],
+      "symptoms": [
+        { "name": "paint_peeling", "aliases": ["paint peeling", "clear coat failing", "paint bubbling"] },
+        { "name": "rust", "aliases": ["rust", "rusting", "corrosion"] },
+        { "name": "panel_gap_uneven", "aliases": ["panel gap", "uneven gaps", "misaligned panel"] },
+        { "name": "water_leak", "aliases": ["water leak", "water ingress", "leaking water"] },
+        { "name": "wind_noise", "aliases": ["wind noise", "whistling at speed", "excessive wind noise"] },
+        { "name": "rattle", "aliases": ["rattle", "rattling noise", "something rattling"] },
+        { "name": "door_handle_stuck", "aliases": ["door handle stuck", "can't open door", "door won't open"] },
+        { "name": "window_not_working", "aliases": ["window stuck", "window won't go up", "power window broken"] },
+        { "name": "headlight_condensation", "aliases": ["headlight condensation", "moisture in headlight", "foggy headlight"] },
+        { "name": "sunroof_leak", "aliases": ["sunroof leaking", "water through sunroof", "sunroof seal"] },
+        { "name": "boot_leak", "aliases": ["boot leaking", "water in boot", "trunk wet"] }
+      ]
+    },
+    "infotainment": {
+      "label": "Infotainment",
+      "parts": [
+        { "name": "touchscreen", "aliases": ["screen", "touchscreen", "display"] },
+        { "name": "speakers", "aliases": ["speakers", "audio system", "sound system"] },
+        { "name": "microphone", "aliases": ["microphone", "mic"] },
+        { "name": "bluetooth_module", "aliases": ["bluetooth", "bt module"] },
+        { "name": "gps_module", "aliases": ["gps", "navigation", "sat nav"] },
+        { "name": "usb_port", "aliases": ["usb port", "usb socket", "usb c"] },
+        { "name": "wireless_charger", "aliases": ["wireless charger", "phone charger pad", "qi charger"] },
+        { "name": "dashcam", "aliases": ["dashcam", "dash cam", "built in dashcam"] }
+      ],
+      "symptoms": [
+        { "name": "screen_black", "aliases": ["screen black", "screen not turning on", "black screen"] },
+        { "name": "screen_frozen", "aliases": ["screen frozen", "screen unresponsive", "screen stuck"] },
+        { "name": "screen_lag", "aliases": ["screen lag", "touchscreen lag", "slow screen"] },
+        { "name": "carplay_not_working", "aliases": ["carplay not working", "apple carplay broken", "carplay disconnects"] },
+        { "name": "android_auto_not_working", "aliases": ["android auto not working", "android auto disconnects", "aa broken"] },
+        { "name": "bluetooth_dropout", "aliases": ["bluetooth keeps disconnecting", "bluetooth dropping", "bt cutting out"] },
+        { "name": "navigation_wrong", "aliases": ["gps wrong", "navigation lost", "sat nav inaccurate"] },
+        { "name": "voice_assistant_useless", "aliases": ["voice assistant broken", "voice control not working", "doesn't understand me"] },
+        { "name": "audio_crackling", "aliases": ["speakers crackling", "audio distortion", "sound cutting out"] },
+        { "name": "usb_not_working", "aliases": ["usb not charging", "usb port dead", "carplay not connecting via usb"] }
+      ]
+    }
+  }
+}

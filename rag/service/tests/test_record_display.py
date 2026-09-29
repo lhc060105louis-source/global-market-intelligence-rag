@@ -32,7 +32,7 @@ def test_risk_records_use_structured_threshold_only():
     )
     assert normal["display_category"] == "risk_assessment"
     assert normal["risk_state"] == "normal"
-    assert "尚未触发正式风险预警" in normal["display_summary"]
+    assert "no production alert has been triggered" in normal["display_summary"]
 
     payload["result"]["threshold_exceeded"] = True
     alert = build_record_display(
@@ -40,7 +40,7 @@ def test_risk_records_use_structured_threshold_only():
     )
     assert alert["display_category"] == "risk_alert"
     assert alert["risk_state"] == "alert"
-    assert "当前形成正式风险预警" in alert["display_summary"]
+    assert "production risk alert" in alert["display_summary"]
 
 
 def test_summary_omits_missing_values_without_serializing_objects():
@@ -50,8 +50,8 @@ def test_summary_omits_missing_values_without_serializing_objects():
     display = build_record_display(
         source_system="C", record_type="consumer_journey_sentiment", payload_json=payload,
     )
-    assert "负面情绪占" not in display["display_summary"]
-    assert "统计期为2026-08-04" in display["display_summary"]
+    assert "Negative sentiment" not in display["display_summary"]
+    assert "Reporting period: 2026-08-04" in display["display_summary"]
     assert "journey_curve" not in display["display_summary"]
 
 

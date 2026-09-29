@@ -26,24 +26,24 @@ def test_maxkb_hit_uses_parent_document_id_over_chunk_id():
 
 
 def test_encoding_corruption_detection_rejects_mojibake_but_allows_normal_text():
-    assert encoding_corruption("品牌：Tesla；风险状态：正常") is False
-    assert encoding_corruption("品牌：????????????????") is True
-    assert encoding_corruption("品牌：�") is True
+    assert encoding_corruption("brand: Tesla; risk_status: Healthy") is False
+    assert encoding_corruption("brand: ????????????????") is True
+    assert encoding_corruption("brand: �") is True
 
 
 def test_text_quality_checks_nested_payload_without_rejecting_normal_question_marks():
-    assert find_text_quality_issues({"title": "What?", "items": ["正常文本"]}) == []
+    assert find_text_quality_issues({"title": "What?", "items": ["Healthy text"]}) == []
     issues = find_text_quality_issues({"result": {"summary": "??????"}})
     assert issues and issues[0].path == "payload.result.summary"
     with pytest.raises(TextQualityError):
         from app.text_quality import validate_text_quality
-        validate_text_quality({"summary": "坏\ufffd文本"})
+        validate_text_quality({"summary": "corrupt\ufffdtext"})
 
 
 def test_unusable_answer_detects_replacement_and_question_mark_corruption():
-    assert _answer_is_unusable("结论：�") is True
+    assert _answer_is_unusable("Conclusion: �") is True
     assert _answer_is_unusable("??????????") is True
-    assert _answer_is_unusable("根据证据，风险正常。") is False
+    assert _answer_is_unusable("Evidence indicates normal risk.") is False
 
 
 def test_ingestion_rejects_corrupt_text_before_persisting(client):
@@ -70,7 +70,7 @@ def test_ollama_missing_model_is_actionable(monkeypatch):
         ollama_text_model="missing-model",
     )
     with pytest.raises(OllamaModelUnavailable, match="missing-model"):
-        _ollama_evidence_answer(settings, "问题", "证据")
+        _ollama_evidence_answer(settings, "Question", "Evidence")
 
 
 def test_maxkb_missing_model_is_classified_for_observability():
@@ -103,7 +103,7 @@ def test_query_surfaces_missing_ollama_model_instead_of_silent_empty_answer(clie
         "app.main._ollama_evidence_answer",
         lambda *args, **kwargs: (_ for _ in ()).throw(OllamaModelUnavailable("missing-model", "model not found")),
     )
-    response = post(client, "/api/v1/query", {"query": "这个车型的趋势如何"})
+    response = post(client, "/api/v1/query", {"query": "What is the trend for this vehicle model?"})
     assert response.status_code == 503
     assert response.json()["error_code"] == "ollama_model_unavailable"
 
@@ -132,9 +132,9 @@ def test_query_preserves_structured_answer_without_calling_ollama(client, monkey
         "app.main._ollama_evidence_answer",
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("structured query should not call Ollama")),
     )
-    response = post(client, "/api/v1/query", {"query": "有哪些品牌"})
+    response = post(client, "/api/v1/query", {"query": "Which brands?"})
     assert response.status_code == 200
-    assert response.json()["output"]["综合结论"].startswith("根据当前检索到的有效证据")
+    assert response.json()["output"]["summary"].startswith("Brands identified in the validated evidence")
 
 
 def test_health_auth_and_validation(client):

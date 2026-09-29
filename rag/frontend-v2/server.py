@@ -77,7 +77,7 @@ class FrontendHandler(SimpleHTTPRequestHandler):
         if authenticated:
             api_key = load_env(SERVICE_ENV).get("RAG_HUB_API_KEY", "")
             if not api_key:
-                self._json_error(503, "RAG Hub 本机密钥尚未配置")
+                self._json_error(503, "The local RAG Hub API key is not configured")
                 return
             headers["X-API-Key"] = api_key
 
@@ -107,7 +107,7 @@ class FrontendHandler(SimpleHTTPRequestHandler):
             self.wfile.write(payload)
         except (URLError, TimeoutError) as exc:
             reason = exc.reason if isinstance(exc, URLError) else exc
-            self._json_error(502, f"无法连接 RAG Hub：{reason}")
+            self._json_error(502, f"Could not connect to the RAG Hub: {reason}")
 
     def _json_error(self, status: int, message: str) -> None:
         payload = json.dumps({"detail": message}, ensure_ascii=False).encode("utf-8")

@@ -161,12 +161,12 @@ def test_maxkb_chat_does_not_duplicate_context_already_embedded_in_query():
 
     result = adapter.chat(
         application_id="app-1",
-        query="只按证据回答。\n最终证据：C1",
-        context="最终证据：C1",
+        query="Answer using evidence only.\nFinal evidence: C1",
+        context="Final evidence: C1",
     )
 
     assert result["answer"] == "ok"
     assert len(chat_requests) == 1
     assert chat_requests[0]["messages"] == [{
-        "role": "user", "content": "只按证据回答。\n最终证据：C1",
+        "role": "user", "content": "Answer using evidence only.\nFinal evidence: C1",
     }]

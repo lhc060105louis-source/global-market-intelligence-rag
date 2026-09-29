@@ -8,17 +8,17 @@ import { DashboardSummary, ragApi } from './lib/api'
 type Page = 'qa' | 'alert' | 'search' | 'datastatus'
 
 const NAV_ITEMS: { id: Page; label: string; icon: string; badge?: { text: string; color: string } }[] = [
-  { id: 'qa', label: '全局问答', icon: '⌁', badge: { text: 'RAG', color: 'blue' } },
-  { id: 'alert', label: '预警协同', icon: '⚠' },
-  { id: 'search', label: '知识搜索', icon: '⊞', badge: { text: '跨端', color: 'gray' } },
-  { id: 'datastatus', label: '数据状态', icon: '⇄' },
+  { id: 'qa', label: 'Global Q&A', icon: '⌁', badge: { text: 'RAG', color: 'blue' } },
+  { id: 'alert', label: 'Alert Coordination', icon: '⚠' },
+  { id: 'search', label: 'Knowledge Search', icon: '⊞', badge: { text: 'Cross-domain', color: 'gray' } },
+  { id: 'datastatus', label: 'Data Status', icon: '⇄' },
 ]
 
 const PAGE_TITLES: Record<Page, string> = {
-  qa: '全局问答',
-  alert: '预警协同',
-  search: '知识搜索',
-  datastatus: '数据状态',
+  qa: 'Global Q&A',
+  alert: 'Alert Coordination',
+  search: 'Knowledge Search',
+  datastatus: 'Data Status',
 }
 
 export default function App() {
@@ -27,7 +27,7 @@ export default function App() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [dataTime, setDataTime] = useState(() => {
     const now = new Date()
-    return `${now.getMonth() + 1}月${now.getDate()}日 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    return now.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   })
   const [serviceState, setServiceState] = useState<'loading' | 'ok' | 'error'>('loading')
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
@@ -48,8 +48,8 @@ export default function App() {
     setServiceState(health.status === 'fulfilled' && health.value.status === 'ok' ? 'ok' : 'error')
     if (dashboard.status === 'fulfilled') setSummary(dashboard.value)
     const now = new Date()
-    setDataTime(`${now.getMonth() + 1}月${now.getDate()}日 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
-    if (showMessage) showToast('已刷新 RAG Hub 数据状态')
+    setDataTime(now.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))
+    if (showMessage) showToast('RAG Hub data status refreshed')
   }
 
   useEffect(() => { void refreshData() }, [refreshToken])
@@ -63,15 +63,15 @@ export default function App() {
       {/* Sidebar */}
       <nav style={{ width: 200, background: 'var(--nav)', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px', borderBottom: '0.5px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 30, height: 30, background: '#2563EB', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>知</div>
+          <div style={{ width: 30, height: 30, background: '#2563EB', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>R</div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>全局 RAG 中枢</div>
-            <div style={{ fontSize: 10, color: '#64748B', marginTop: 1 }}>出海协同工作台</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>Global RAG Hub</div>
+            <div style={{ fontSize: 10, color: '#64748B', marginTop: 1 }}>International Market Intelligence</div>
           </div>
         </div>
 
         <div style={{ padding: '10px 0', flex: 1 }}>
-          <div style={{ padding: '6px 12px 4px', fontSize: 9, fontWeight: 600, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase' }}>核心功能</div>
+          <div style={{ padding: '6px 12px 4px', fontSize: 9, fontWeight: 600, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase' }}>CORE FEATURES</div>
           {NAV_ITEMS.map(item => (
             <button
               key={item.id}
@@ -103,12 +103,12 @@ export default function App() {
 
         <div style={{ padding: '10px 14px 14px', borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
           <div style={{ fontSize: 9, color: '#475569', lineHeight: 1.6 }}>
-            <div style={{ color: '#64748B', marginBottom: 2 }}>三端数据已接入</div>
+            <div style={{ color: '#64748B', marginBottom: 2 }}>All modules connected</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#059669', display: 'inline-block' }}></span>
-              <span style={{ color: serviceState === 'ok' ? '#059669' : '#DC2626' }}>{serviceState === 'ok' ? '正式接口运行中' : '等待正式接口'}</span>
+              <span style={{ color: serviceState === 'ok' ? '#059669' : '#DC2626' }}>{serviceState === 'ok' ? 'Production API online' : 'Waiting for production API'}</span>
             </div>
-            <div style={{ marginTop: 4, color: '#334155' }}>v2.0 · RAG Hub 数据联动</div>
+            <div style={{ marginTop: 4, color: '#334155' }}>v2.0 · RAG Hub integration</div>
           </div>
         </div>
       </nav>
@@ -129,17 +129,17 @@ export default function App() {
             color: serviceState === 'ok' ? '#047857' : serviceState === 'loading' ? '#1D4ED8' : '#991B1B',
             border: '0.5px solid rgba(37,99,235,0.2)',
             display: 'flex', alignItems: 'center', gap: 4,
-          }}>{serviceState === 'ok' ? '正式接口已连接' : serviceState === 'loading' ? '正在连接 RAG Hub' : 'RAG Hub 不可用'}</span>
+          }}>{serviceState === 'ok' ? 'Production API connected' : serviceState === 'loading' ? 'Connecting to RAG Hub' : 'RAG Hub unavailable'}</span>
 
           <span style={{ fontSize: 10, color: serviceState === 'ok' ? '#059669' : '#DC2626', display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: serviceState === 'ok' ? '#059669' : '#DC2626', display: 'inline-block' }}></span>
-            {summary ? `当前知识 ${summary.knowledge.upstream_current} 条 · 活跃预警 ${summary.risks.active}` : '等待接口状态'}
+            {summary ? `${summary.knowledge.upstream_current} active records · ${summary.risks.active} active alerts` : 'Waiting for API status'}
           </span>
-          <span style={{ fontSize: 10, color: '#6B7280' }}>更新于 {dataTime}</span>
+          <span style={{ fontSize: 10, color: '#6B7280' }}>Updated {dataTime}</span>
           <button
             style={{ fontSize: 11, padding: '5px 10px', borderRadius: 5, border: '0.5px solid var(--border)', background: '#F8FAFC', color: '#374151', display: 'flex', alignItems: 'center', gap: 4 }}
             onClick={() => setRefreshToken(value => value + 1)}
-          >↻ 刷新数据</button>
+          >↻ Refresh Data</button>
         </div>
 
         {/* Content */}

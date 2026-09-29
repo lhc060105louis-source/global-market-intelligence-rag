@@ -11,26 +11,25 @@ import re
 from typing import Any, Iterable
 
 
-# Canonical values intentionally use payload_json spellings. The same helper
-# canonicalizes both a question alias and the payload value before comparison.
-# Brand/model seeds are limited to C-side vehicle identity data and observed
-# RAG payload spellings. B-side regulation names are the canonical topic seed.
-# The C-side part/symptom taxonomy is intentionally not imported here.
+# Canonical values use payload_json spellings. The same helper canonicalizes
+# question aliases and payload values before comparison. Brand and model seeds
+# cover C-side vehicle identity data; regulation names seed B-side topics. The
+# C-side part and symptom taxonomy is intentionally not imported here.
 ENTITY_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
     "brand": {
-        "Tesla": ("Tesla", "特斯拉"), "BYD": ("BYD", "比亚迪"),
-        "Hyundai": ("Hyundai", "现代汽车", "现代"), "NIO": ("NIO", "蔚来"),
-        "XPeng": ("XPeng", "小鹏", "小鹏汽车"), "Li Auto": ("Li Auto", "理想", "理想汽车"),
-        "Volkswagen": ("Volkswagen", "VW", "大众汽车", "大众"),
+        "Tesla": ("Tesla",), "BYD": ("BYD",),
+        "Hyundai": ("Hyundai",), "NIO": ("NIO",),
+        "XPeng": ("XPeng",), "Li Auto": ("Li Auto",),
+        "Volkswagen": ("Volkswagen", "VW"),
         "MG": ("MG",),
     },
     "vehicle_model": {
-        "Model Y": ("Model Y", "Model-Y", "Model_Y", "Y车型", "Y 车型"),
-        "Model 3": ("Model 3", "Model-3", "Model_3", "3车型", "3 车型"),
-        "Dolphin": ("Dolphin", "海豚"),
-        "Seal": ("Seal", "海豹"),
-        "Atto 3": ("Atto 3", "Atto-3", "元Plus", "元 Plus"),
-        "Ioniq 5": ("Ioniq 5", "Ioniq-5", "艾尼氪5"),
+        "Model Y": ("Model Y", "Model-Y", "Model_Y"),
+        "Model 3": ("Model 3", "Model-3", "Model_3"),
+        "Dolphin": ("Dolphin",),
+        "Seal": ("Seal",),
+        "Atto 3": ("Atto 3", "Atto-3"),
+        "Ioniq 5": ("Ioniq 5", "Ioniq-5"),
         "EL6": ("EL6", "EL 6"),
         "ID.3": ("ID.3", "ID_3", "ID 3"),
         "ID.4": ("ID.4", "ID_4", "ID 4"),
@@ -39,99 +38,94 @@ ENTITY_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "region": {
         "EU": (
-            "EU", "E.U.", "欧盟", "欧洲联盟", "欧洲",
-            "EU 全域", "EU 进口", "EU 公共采购", "EU + 英国等 60+ 缔约方",
+            "EU", "E.U.", "European Union", "Europe",
+            "EU-wide", "EU imports", "EU public procurement", "EU + 60+ contracting parties, including the UK",
         ),
-        "UK": ("UK", "英国", "United Kingdom"),
-        "US": ("US", "U.S.", "美国"), "China": ("China", "中国"), "ASEAN": ("ASEAN", "东盟"),
-        "Germany": ("Germany", "德国", "DE", "成员国:德国"),
-        "France": ("France", "法国", "FR", "成员国:法国"),
-        "Italy": ("Italy", "意大利", "IT"),
-        "Spain": ("Spain", "西班牙", "ES"),
-        "Netherlands": ("Netherlands", "荷兰", "NL"),
-        "Norway": ("Norway", "挪威", "NO"),
+        "UK": ("UK", "United Kingdom"),
+        "US": ("US", "U.S.", "United States"), "China": ("China",), "ASEAN": ("ASEAN",),
+        "Germany": ("Germany", "DE"),
+        "France": ("France", "FR"),
+        "Italy": ("Italy", "IT"),
+        "Spain": ("Spain", "ES"),
+        "Netherlands": ("Netherlands", "NL"),
+        "Norway": ("Norway", "NO"),
     },
     "regulation_topic": {
         "General Safety Regulation": (
-            "General Safety Regulation", "GSR", "通用安全法规",
-            "General Safety Regulation 通用安全法规", "(EU) 2019/2144",
+            "General Safety Regulation", "GSR", "(EU) 2019/2144",
         ),
         "AI Act": (
-            "EU AI Act", "AI Act", "人工智能法案", "欧盟人工智能法案",
-            "EU 人工智能法案 AI Act", "(EU) 2024/1689",
+            "EU AI Act", "AI Act", "Artificial Intelligence Act", "(EU) 2024/1689",
         ),
         "REACH": (
-            "REACH", "REACH / SVHC", "SVHC", "欧盟化学品法规",
-            "化学品注册评估授权限制", "(EC) 1907/2006",
+            "REACH", "REACH / SVHC", "SVHC", "EU chemicals regulation",
+            "Registration, Evaluation, Authorisation and Restriction of Chemicals", "(EC) 1907/2006",
         ),
         "Battery Regulation": (
-            "Battery Regulation", "电池法规", "欧盟电池法规",
-            "EU 电池法规 Battery Regulation", "(EU) 2023/1542",
+            "Battery Regulation", "EU Battery Regulation", "(EU) 2023/1542",
         ),
         "WVTA": (
-            "WVTA", "整车型式批准", "Regulation 2018/858",
+            "WVTA", "Whole Vehicle Type Approval", "Regulation 2018/858",
             "(EU) 2018/858",
         ),
         "UNECE R155": (
-            "UNECE R155", "UN R155", "R155", "CSMS", "UN R155 / CSMS", "网络安全法规",
+            "UNECE R155", "UN R155", "R155", "CSMS", "UN R155 / CSMS", "Cybersecurity regulation",
         ),
         "AFIR": (
-            "AFIR", "替代燃料基础设施法规",
-            "Alternative Fuels Infrastructure Regulation", "(EU) 2023/1804",
+            "AFIR", "Alternative Fuels Infrastructure Regulation", "(EU) 2023/1804",
         ),
         "UNECE R156": (
-            "UNECE R156", "UN R156", "R156", "SUMS", "软件更新管理",
+            "UNECE R156", "UN R156", "R156", "SUMS",
         ),
         "Data Act": (
-            "Data Act", "EU Data Act", "数据法案", "欧盟数据法案",
-            "GDPR + EU 数据法案 Data Act", "(EU) 2023/2854",
+            "Data Act", "EU Data Act", "GDPR + EU Data Act", "(EU) 2023/2854",
         ),
         "CBAM": (
-            "CBAM", "碳边境调节机制", "Carbon Border Adjustment Mechanism",
+            "CBAM", "Carbon Border Adjustment Mechanism", "Carbon Border Adjustment Mechanism",
             "(EU) 2023/956",
         ),
         "Euro 7": (
-            "Euro 7", "Euro7", "欧7", "排放与电池耐久法规",
+            "Euro 7", "Euro7", "emissions and battery durability regulation",
             "(EU) 2024/1257",
         ),
         "EU CO2 Standards": (
-            "EU CO₂ 乘用车/货车排放标准", "CO₂ Standards", "CO2 Standards",
-            "EU CO2 standards", "欧盟二氧化碳排放标准",
+            "EU CO2 passenger car and van emission standards", "CO2 Standards",
+            "EU CO2 standards", "EU CO2 emission standards",
         ),
         "Clean Vehicles Directive": (
-            "Clean Vehicles Directive", "清洁车辆指令", "(EU) 2019/1161",
+            "Clean Vehicles Directive", "Clean Vehicles Directive", "(EU) 2019/1161",
         ),
         "Foreign Subsidies Regulation": (
-            "Foreign Subsidies Regulation", "外国补贴条例", "(EU) 2022/2560",
+            "Foreign Subsidies Regulation", "Foreign Subsidies Regulation", "(EU) 2022/2560",
         ),
-        "Euro NCAP": ("Euro NCAP", "Euro NCAP 2026", "安全评估协议"),
+        "Euro NCAP": ("Euro NCAP", "Euro NCAP 2026", "safety assessment protocol"),
         "German KBA/BAFA": (
-            "德国联邦补贴与本地化认证要求", "DE-KBA / BAFA", "KBA", "BAFA",
+            "German federal subsidy and local certification requirements", "DE-KBA / BAFA", "KBA", "BAFA",
         ),
     },
 }
 
 FIELD_ALIASES: dict[str, tuple[str, ...]] = {
-    "risk_status": ("risk_status", "风险状态", "风险是否正常", "是否正常", "风险情况", "风险开放状态"),
-    "risk_level": ("risk_level", "风险等级", "风险级别", "风险程度"),
-    "trend_direction": ("trend_direction", "trend", "趋势", "走势", "变化方向", "变化趋势"),
-    "key_complaints": ("key_complaints", "主要抱怨", "主要投诉", "投诉点", "用户吐槽", "抱怨点"),
-    "complaints": ("complaints", "抱怨", "投诉", "不满", "吐槽"),
-    "brand_attitude": ("brand_attitude", "品牌态度", "品牌口碑", "用户对品牌的看法"),
-    "attitude": ("attitude", "态度", "口碑", "情感态度"),
-    "recall_risk": ("recall_risk", "召回风险", "召回", "安全召回"),
-    "legal_risk": ("legal_risk", "法律风险", "法律行动", "法律诉讼", "法律责任"),
-    "threshold_exceeded": ("threshold_exceeded", "超过阈值", "达到阈值", "行动信号阈值", "是否超阈值"),
+    "risk_status": ("risk_status", "risk status", "is the risk normal", "risk condition", "open risk status"),
+    "risk_level": ("risk_level", "risk level", "risk severity"),
+    "trend_direction": ("trend_direction", "trend", "direction of change", "trend direction"),
+    "key_complaints": ("key_complaints", "key complaints", "main complaints", "complaint points", "user feedback"),
+    "complaints": ("complaints", "complaint", "dissatisfaction", "negative feedback"),
+    "brand_attitude": ("brand_attitude", "brand sentiment", "brand reputation", "how users view the brand"),
+    "attitude": ("attitude", "reputation", "sentiment"),
+    "recall_risk": ("recall_risk", "recall risk", "recall", "safety recall"),
+    "legal_risk": ("legal_risk", "legal risk", "legal action", "lawsuit", "legal liability"),
+    "threshold_exceeded": ("threshold_exceeded", "above threshold", "reached threshold", "action signal threshold"),
 }
 
-_UNKNOWN_VALUES = {"", "unknown", "unknown_brand", "n/a", "na", "none", "null", "未识别", "未知"}
-_RISK_MARKERS = ("风险", "法律", "召回", "投诉", "抱怨", "趋势", "风险等级")
-_C_ENTITY_MARKERS = ("消费者", "用户", "车型", "品牌", "车", "风险", "抱怨", "投诉", "口碑", "情绪")
+_UNKNOWN_VALUES = {"", "unknown", "unknown_brand", "n/a", "na", "none", "null", "unrecognized"}
+_RISK_MARKERS = ("risk", "legal", "recall", "complaint", "trend", "risk level")
+_C_ENTITY_MARKERS = ("consumer", "user", "vehicle model", "brand", "vehicle", "risk", "complaint", "reputation", "sentiment")
 _LATIN_ALIAS = re.compile(r"[a-z0-9][a-z0-9 ._-]*$", re.IGNORECASE)
 _DOMAIN_MARKERS = {
-    "c": ("消费者", "用户", "评论", "情绪", "投诉", "抱怨", "口碑", "召回", "维修"),
-    "b": ("商业", "法规", "合规", "客户", "项目", "采购", "充电", "AFIR", "CPO", "电网", "储能"),
-    "kol": ("KOL", "达人", "网红", "传播", "合作", "内容创作者"),
+    "c": ("consumer", "user", "review", "comment", "sentiment", "complaint", "reputation", "recall", "repair"),
+    "b": ("business", "regulation", "compliance", "client", "project", "procurement", "charging", "AFIR", "CPO", "power grid", "energy storage"),
+    "kol": ("KOL", "creator", "influencer", "reach", "partnership", "content creator"),
 }
 
 
@@ -161,7 +155,7 @@ def entity_matches(entity_type: str, expected: str, actual: Any) -> bool:
         return True
     if entity_type == "region" and isinstance(actual, str):
         # B scopes can contain several regions, for example
-        # ``EU + 英国等 60+ 缔约方``. Treat a named region inside that
+        # ``EU + 60+ contracting parties, including the UK``. Treat a named region inside that
         # structured scope as a match without broadening model/entity matching.
         return any(_contains_alias(actual, alias) for alias in ENTITY_ALIASES["region"].get(expected, ()))
     return False
@@ -242,13 +236,13 @@ def _find_fields(question: str) -> tuple[frozenset[str], dict[str, float]]:
 
 
 def _date_range(question: str) -> str | None:
-    month = re.search(r"(?<!\d)(20\d{2})[-/.](0?[1-9]|1[0-2])(?:月|[-/.]|$)", question)
-    year = re.search(r"(?<!\d)(20\d{2})(?:年|[-/.])", question)
+    month = re.search(r"(?<!\d)(20\d{2})[-/.](0?[1-9]|1[0-2])(?:[-/.]|$)", question)
+    year = re.search(r"(?<!\d)(20\d{2})(?:[-/.])", question)
     if month:
         return f"{month.group(1)}-{int(month.group(2)):02d}"
     if year:
         return year.group(1)
-    return "current" if any(token in question for token in ("最近", "当前", "目前", "latest", "recent")) else None
+    return "current" if any(token in question for token in ("latest", "recent", "current", "currently")) else None
 
 
 def _needs_c_entity(question: str, targets: list[str] | None) -> bool:

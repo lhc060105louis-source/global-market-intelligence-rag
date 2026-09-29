@@ -1,74 +1,77 @@
 # -*- coding: utf-8 -*-
-"""三端共享实体字段定义。商分组可对照 Excel/PRD 审阅此文件。
-字段名统一 snake_case,枚举使用 overseas_shared.enums。"""
+"""Shared entity field definitions for all application modules.
+
+Business stakeholders can review this file alongside the specification.
+Field names use snake_case; enum values are defined in overseas_shared.enums.
+"""
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-# enums 在本包内引用,不打乱 import 路径
-# 如需类型提示: from overseas_shared.enums import Country, RegType, ...
+# Enums are referenced within this package to keep import paths stable.
+# For type hints, import the required types from overseas_shared.enums.
 
 
 @dataclass
 class MaterialItem:
-    """一条投标材料要求(对齐法规支持.xlsx 主表 + PRD 8.3-8.4)。"""
-    name: str                              # 材料名称,如 "CSMS 证书"
+    """A bid-material requirement aligned with the compliance specification."""
+    name: str                              # Material name, e.g. "CSMS certificate"
     priority: str                          # P0 / P1 / P2 / P3
-    status: str = "待确认"                 # 待确认/已准备/缺失/待更新/审核中/已过期/不适用
-    owner: str = ""                        # 负责人
-    due_date: str = ""                     # 截止日期
+    status: str = "Unconfirmed"           # Unconfirmed / Ready / Missing / Needs Update / Under Review / Expired / Not Applicable
+    owner: str = ""                        # Owner
+    due_date: str = ""                     # Due date
 
 
 @dataclass
 class Regulation:
-    """法规主记录(对齐 PRD 9.3 Regulation 字段字典 + Excel 主表)。"""
+    """A regulation record aligned with the regulation field specification."""
     regulation_id: str                     # REG-001
-    name: str                              # 法规名称
-    official_number: str = ""              # 官方编号,如 (EU) 2023/1542
-    issuer: str = ""                       # 发布机构
-    type: str = ""                         # 法规类型(建议用 RegType 枚举值)
-    country: list[str] = field(default_factory=list)  # 适用国家(ISO2),如 ["DE","EU"]
+    name: str                              # Regulation name
+    official_number: str = ""              # Official number, e.g. (EU) 2023/1542
+    issuer: str = ""                       # Issuing authority
+    type: str = ""                         # Regulation type; preferably a RegType enum value
+    country: list[str] = field(default_factory=list)  # Applicable ISO 3166-1 alpha-2 codes, e.g. ["DE", "EU"]
     applicable_product: list[str] = field(default_factory=list)
-    effective_date: str = ""               # 生效日期
-    impact_level: str = ""                 # 高 / 中 / 低
-    core_requirement: str = ""             # 核心要求(人工核验摘要)
-    official_source: str = ""              # 官方来源 URL
-    last_verified_at: str = ""             # 最近核验日期
-    status: str = "待审核"                 # 草稿/待审核/已审核/已失效
+    effective_date: str = ""               # Effective date
+    impact_level: str = ""                 # High / Medium / Low
+    core_requirement: str = ""             # Core requirement summarized after manual verification
+    official_source: str = ""              # Official source URL
+    last_verified_at: str = ""             # Most recent verification date
+    status: str = "Pending Review"        # Draft / Pending Review / Approved / Deprecated
     version: str = "v1.0"
-    materials: list[MaterialItem] = field(default_factory=list)  # 所需材料清单
-    local_partner_duty: str = ""           # 本地合作方职责
-    gap: str = ""                          # 合规缺口说明
+    materials: list[MaterialItem] = field(default_factory=list)  # Required materials
+    local_partner_duty: str = ""           # Local partner responsibilities
+    gap: str = ""                          # Compliance gap description
     linked_intelligence_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
 class Project:
-    """政企采购项目(对齐 PRD 9.2 Project 字段字典 + 评分模型)。"""
+    """A public-sector or enterprise procurement opportunity."""
     project_id: str                        # PRJ-001
-    project_name: str                      # 公告正式名称
+    project_name: str                      # Official tender or project name
     country: str = ""                      # ISO2
-    client_type: str = ""                  # 客户类型
-    buyer_name: str = ""                   # 采购主体
-    scenario: str = ""                     # 应用场景
-    amount: float = 0.0                    # 合同金额
+    client_type: str = ""                  # Client type
+    buyer_name: str = ""                   # Procuring organization
+    scenario: str = ""                     # Use case
+    amount: float = 0.0                    # Contract value
     currency: str = "EUR"
     deadline: str = ""
     source_url: str = ""
     description: str = ""
-    stage: str = "评估中"                  # 新线索/评估中/准备投标/已提交/中标/未中标/终止
-    scores: dict = field(default_factory=dict)   # 七维评分 {scale, buyer, technical, ...}
+    stage: str = "Under Evaluation"      # New Lead / Under Evaluation / Preparing Bid / Submitted / Won / Lost / Terminated
+    scores: dict = field(default_factory=dict)  # Seven-dimension score, e.g. {scale, buyer, technical, ...}
     total_score: int = 0
-    project_level: str = "暂缓投入"        # 优先跟进/持续观察/暂缓投入
+    project_level: str = "On Hold"        # Priority Follow-up / Monitoring / On Hold
     linked_regulation_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ClientProfile:
-    """B 端客户画像(对齐 Week2 销售支持模板)。"""
-    client_type: str                       # 客户类型
-    region: str = ""                       # 国家(ISO2)
-    scenario: str = ""                     # 应用场景
+    """A B2B customer profile used by the sales-support workflow."""
+    client_type: str                       # Client type
+    region: str = ""                       # Country code (ISO 3166-1 alpha-2)
+    scenario: str = ""                     # Use case
     painpoints: list[str] = field(default_factory=list)
     focus_points: list[str] = field(default_factory=list)
     product_direction: list[str] = field(default_factory=list)
@@ -79,14 +82,14 @@ class ClientProfile:
 
 @dataclass
 class DataSource:
-    """公开数据来源(对齐 V2.0 PRD Source 实体)。"""
+    """A public data source used by the application."""
     source_id: str                         # SRC-001
-    name: str                              # 来源名称
-    type: str = ""                         # 数据类型(法规/政策/采购/行业数据...)
-    level: str = "T4"                      # T1-T4 来源等级
+    name: str                              # Source name
+    type: str = ""                         # Data type (regulation, policy, procurement, industry data, etc.)
+    level: str = "T4"                      # Source reliability tier, T1-T4
     url: str = ""
-    frequency: str = ""                    # 更新频率
-    access_method: str = ""                # 获取方式(API/网页/RSS/人工)
+    frequency: str = ""                    # Update frequency
+    access_method: str = ""                # Access method (API / web / RSS / manual)
     free: bool = True
-    module: str = ""                       # 所属模块(法规与政策/行业数据/政企商机...)
+    module: str = ""                       # Owning module (regulations, industry data, public-sector opportunities, etc.)
     last_checked_at: str = ""

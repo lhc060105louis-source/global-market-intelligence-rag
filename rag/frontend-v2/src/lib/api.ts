@@ -99,19 +99,19 @@ export interface RiskDetail {
 }
 
 export interface QueryOutput {
-  综合结论: string | null
-  C端消费者信号: string | null
-  B端商业影响: string | null
-  KOL传播与合作影响: string | null
-  文字行动建议: string | null
-  简化证据: Array<{
+  summary: string | null
+  consumer_signal: string | null
+  business_impact: string | null
+  kol_impact: string | null
+  action_recommendations: string | null
+  evidence: Array<{
     record_id: string
     target_knowledge_base: string
     score: number | null
     source_version: number
   }>
-  数据时间: string[]
-  结论边界: string | null
+  data_time: string[]
+  limitations: string | null
 }
 
 export type SemanticFieldKey = 'summary' | 'consumer_signal' | 'business_impact' | 'kol_impact' | 'actions'
@@ -149,17 +149,17 @@ export interface QueryResponse {
 }
 
 const SEMANTIC_OUTPUT_KEYS: Record<SemanticFieldKey, keyof QueryOutput> = {
-  summary: '综合结论',
-  consumer_signal: 'C端消费者信号',
-  business_impact: 'B端商业影响',
-  kol_impact: 'KOL传播与合作影响',
-  actions: '文字行动建议',
+  summary: 'summary',
+  consumer_signal: 'consumer_signal',
+  business_impact: 'business_impact',
+  kol_impact: 'kol_impact',
+  actions: 'action_recommendations',
 }
 
 const SEMANTIC_FALLBACK_NOTICES: Partial<Record<SemanticFieldKey, string>> = {
-  consumer_signal: '当前选定范围内没有可支持 C 端消费者信号的有效证据。',
-  business_impact: '当前选定范围内没有可支持 B 端商业影响的有效证据。',
-  kol_impact: '当前选定范围内没有可支持 KOL 传播与合作影响的有效证据。',
+  consumer_signal: 'No valid evidence supports consumer signals in the selected scope.',
+  business_impact: 'No valid evidence supports business impact in the selected scope.',
+  kol_impact: 'No valid evidence supports creator impact in the selected scope.',
 }
 
 export function semanticFieldInfo(result: QueryResponse, field: SemanticFieldKey): SemanticFieldInfo {
@@ -181,18 +181,18 @@ export function semanticFieldInfo(result: QueryResponse, field: SemanticFieldKey
 export function semanticStatusLabel(result: QueryResponse): string {
   const status = result.query_meta?.generation_status
   if (status === 'ok') {
-    if (result.query_meta.generation_source === 'maxkb') return '已根据当前有效知识完成分析'
-    if (result.query_meta.generation_source === 'mixed') return '部分内容由 LLM 总结，其余为证据兜底'
-    return '已完成证据整理'
+  if (result.query_meta.generation_source === 'maxkb') return 'Analysis completed using current knowledge'
+  if (result.query_meta.generation_source === 'mixed') return 'Partially summarized by the LLM; remaining fields use evidence-based fallbacks'
+  return 'Evidence review completed'
   }
   if (status === 'degraded') {
     return result.query_meta.generation_source === 'mixed'
-      ? '部分内容由 LLM 总结，其余为证据兜底'
-      : '已返回证据兜底结果'
+    ? 'Partially summarized by the LLM; remaining fields use evidence-based fallbacks'
+    : 'Returned an evidence-based fallback'
   }
-  if (status === 'clarification') return '需要补充查询条件'
-  if (status === 'no_evidence') return '未检索到有效证据'
-  return '查询未完成'
+  if (status === 'clarification') return 'More query details needed'
+  if (status === 'no_evidence') return 'No valid evidence found'
+  return 'Query incomplete'
 }
 
 export class RagApiError extends Error {
@@ -224,7 +224,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const detail = typeof payload === 'object' && payload !== null && 'detail' in payload
       ? String((payload as { detail?: unknown }).detail)
-      : `RAG Hub 请求失败（HTTP ${response.status}）`
+      : `RAG Hub request failed (HTTP ${response.status})`
     throw new RagApiError(response.status, detail)
   }
   return payload as T
@@ -294,7 +294,7 @@ export function decodePayload(record: RagRecord): Record<string, unknown> {
 function valueAsText(value: unknown): string {
   if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value
-  if (Array.isArray(value)) return value.map(valueAsText).filter(Boolean).join('、')
+  if (Array.isArray(value)) return value.map(valueAsText).filter(Boolean).join(', ')
   if (typeof value === 'object') return ''
   return String(value)
 }
@@ -381,31 +381,31 @@ export function recordSummary(record: RagRecord): string {
   // serialized into a list or detail-page summary.
   const scalar = (value: unknown): string => valueAsText(value)
   if (record.record_type === 'consumer_journey_sentiment') {
-    const parts = [scalar(payload.journey_stage), scalar(payload.signal_count) ? `反馈${scalar(payload.signal_count)}条` : '', scalar(result.trend_direction) ? `趋势${scalar(result.trend_direction)}` : ''].filter(Boolean)
-    return parts.length ? parts.join('；') : '暂无可展示摘要。'
+  const parts = [scalar(payload.journey_stage), scalar(payload.signal_count) ? `${scalar(payload.signal_count)} feedback items` : '', scalar(result.trend_direction) ? `Trend: ${scalar(result.trend_direction)}` : ''].filter(Boolean)
+  return parts.length ? parts.join('; ') : 'No summary available.'
   }
   if (record.record_type === 'consumer_nps_prediction') {
-    const parts = [result.nps_value !== undefined ? `NPS预测值${scalar(result.nps_value)}` : '', result.change_from_previous !== undefined ? `较前期${scalar(result.change_from_previous)}` : ''].filter(Boolean)
-    return parts.length ? parts.join('；') : '暂无可展示摘要。'
+  const parts = [result.nps_value !== undefined ? `NPS forecast: ${scalar(result.nps_value)}` : '', result.change_from_previous !== undefined ? `Change from previous period: ${scalar(result.change_from_previous)}` : ''].filter(Boolean)
+  return parts.length ? parts.join('; ') : 'No summary available.'
   }
   if (record.record_type === 'consumer_key_complaints') {
     const complaints = Array.isArray(result.complaints) ? result.complaints.filter(isRecord).slice(0, 3) : []
     const topics = complaints.map(item => scalar(item.part) || scalar(item.topic_name)).filter(Boolean)
-    return topics.length ? `主要抱怨：${topics.join('、')}` : '暂无可展示摘要。'
+  return topics.length ? `Key complaints: ${topics.join(', ')}` : 'No summary available.'
   }
   if (record.record_type === 'consumer_brand_attitude') {
     const attitude = scalar(result.attitude)
-    return attitude ? `当前品牌态度为${attitude}` : '暂无可展示摘要。'
+  return attitude ? `Current brand sentiment: ${attitude}` : 'No summary available.'
   }
   if (record.source_system === 'C' && C_RISK_RECORD_TYPES.has(record.record_type)) {
     const subject = scalar(result.part) || scalar(result.risk_type)
-    const state = recordRiskState(record) === 'alert' ? '已触发风险预警' : '风险评估正常'
-    return subject ? `${subject}：${state}` : state
+  const state = recordRiskState(record) === 'alert' ? 'Risk alert triggered' : 'Risk assessment is normal'
+  return subject ? `${subject}: ${state}` : state
   }
   const fallback = ['attitude', 'trend_direction', 'risk_status', 'title', 'name']
     .map(key => scalar(payload[key]) || scalar(result[key]))
     .find(Boolean)
-  return fallback || '暂无可展示摘要。'
+  return fallback || 'No summary available.'
 }
 
 export function recordTime(record: RagRecord): string {
@@ -416,7 +416,7 @@ export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.valueOf())) return value
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return date.toLocaleString('en-US', { hour12: false })
 }
 
 export function syncStatus(item?: SyncSummaryItem): 'ok' | 'syncing' | 'error' {

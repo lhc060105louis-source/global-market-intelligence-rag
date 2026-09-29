@@ -69,7 +69,7 @@ def _inspect_text(path: str, value: str) -> list[TextQualityIssue]:
         ))
 
     meaningful_length = sum(not char.isspace() for char in value)
-    question_marks = value.count("?") + value.count("？")
+    question_marks = value.count("?")
     question_ratio = question_marks / max(meaningful_length, 1)
     # Two marks that make up at least half of a field, or three marks at a
     # lower ratio, are a useful boundary for common decode-corruption output.

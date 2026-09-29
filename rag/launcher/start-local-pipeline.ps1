@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param([switch]$OpenBrowser)
 
 $ErrorActionPreference = "Stop"
@@ -28,9 +28,9 @@ $ragRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $repoRoot = (Resolve-Path (Join-Path $ragRoot "..")).Path
 $serviceRoot = Join-Path $ragRoot "service"
 $frontendRoot = Join-Path $ragRoot "frontend-v2"
-$cRoot = Join-Path $repoRoot "C端\情感分析\VOC情感分析"
-$bRoot = Join-Path $repoRoot "B端政企结合\week7\compliance-sales-support"
-$kolRoot = Join-Path $repoRoot "KOL业务\KOL出海筛选平台"
+$cRoot = Join-Path $repoRoot "customer-voc\sentiment-analysis\voc-sentiment-analysis"
+$bRoot = Join-Path $repoRoot "b2b-public-sector\week7\compliance-sales-support"
+$kolRoot = Join-Path $repoRoot "creator-intelligence\global-creator-assessment-platform"
 $kolDataDir = Join-Path $repoRoot ".local-kol-platform"
 
 function Test-LocalPort([int]$Port) {
@@ -168,10 +168,10 @@ $kolPython = Resolve-Python @(
 )
 
 if ((Test-LocalPort $cVocPort) -and -not (Test-CVocInstance $cVocPort $cRoot)) {
-    throw "C_VOC_PORT $cVocPort is occupied by another service, not C端/情感分析/VOC情感分析. Stop that service or choose another C_VOC_PORT."
+    throw "C_VOC_PORT $cVocPort is occupied by another service, not customer-voc/sentiment-analysis/voc-sentiment-analysis. Stop that service or choose another C_VOC_PORT."
 }
 if ((Test-LocalPort $kolPort) -and -not (Test-KolInstance $kolPort)) {
-    throw "KOL_PLATFORM_PORT $kolPort is occupied by another service, not KOL出海筛选平台. Stop that service or choose another KOL_PLATFORM_PORT."
+        throw "KOL_PLATFORM_PORT $kolPort is occupied by another service, not the Global Creator Assessment Platform. Stop that service or choose another KOL_PLATFORM_PORT."
 }
 
 $serviceEnv = Join-Path $serviceRoot ".env"

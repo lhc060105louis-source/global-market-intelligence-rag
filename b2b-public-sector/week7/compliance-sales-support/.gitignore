@@ -1,0 +1,21 @@
+# Runtime database files (do not upload; they may contain temporary demo state).
+compliance.db
+*.db
+
+# Logs
+st.log
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Editor and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

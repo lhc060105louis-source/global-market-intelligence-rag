@@ -37,13 +37,13 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(description="将 KOL 平台已完成的正式评分结果同步到正式 RAG Hub")
-    result.add_argument("--kol-url", help="KOL 平台地址，默认读取 KOL_SOURCE_BASE_URL")
-    result.add_argument("--rag-url", help="正式 RAG Hub 地址，默认读取 RAG_HUB_BASE_URL 或 http://127.0.0.1:8001")
-    result.add_argument("--api-key", help="RAG Hub API Key，默认读取 RAG_HUB_API_KEY")
-    result.add_argument("--dry-run", action="store_true", help="只检查和转换，不发送数据")
-    result.add_argument("--mock", action="store_true", help="将本次来源标记为模拟数据")
-    result.add_argument("--watch-seconds", type=float, default=0, help="大于 0 时按指定秒数持续同步")
+    result = argparse.ArgumentParser(description="Sync completed creator assessments to the production RAG Hub")
+    result.add_argument("--kol-url", help="Creator platform URL; defaults to KOL_SOURCE_BASE_URL")
+    result.add_argument("--rag-url", help="Production RAG Hub URL; defaults to RAG_HUB_BASE_URL or http://127.0.0.1:8001")
+    result.add_argument("--api-key", help="RAG Hub API key; defaults to RAG_HUB_API_KEY")
+    result.add_argument("--dry-run", action="store_true", help="Validate and transform data without sending it")
+    result.add_argument("--mock", action="store_true", help="Mark this source as demo data")
+    result.add_argument("--watch-seconds", type=float, default=0, help="Keep syncing at this interval when greater than 0")
     return result
 
 
@@ -63,7 +63,7 @@ def main() -> int:
     load_service_env()
     args = parser().parse_args()
     if args.watch_seconds < 0:
-        print("--watch-seconds 不能小于 0", file=sys.stderr)
+        print("--watch-seconds must not be negative", file=sys.stderr)
         return 2
     while True:
         try:

@@ -36,9 +36,9 @@ RAG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$RAG_ROOT/.." && pwd)"
 SERVICE_ROOT="$RAG_ROOT/service"
 FRONTEND_ROOT="$RAG_ROOT/frontend-v2"
-C_ROOT="$REPO_ROOT/C端/情感分析/VOC情感分析"
-B_ROOT="$REPO_ROOT/B端政企结合/week7/compliance-sales-support"
-KOL_ROOT="$REPO_ROOT/KOL业务/KOL出海筛选平台"
+C_ROOT="$REPO_ROOT/customer-voc/sentiment-analysis/voc-sentiment-analysis"
+B_ROOT="$REPO_ROOT/b2b-public-sector/week7/compliance-sales-support"
+KOL_ROOT="$REPO_ROOT/creator-intelligence/global-creator-assessment-platform"
 
 require_file() {
   [[ -f "$1" ]] || { echo "Required local file is missing: $1" >&2; exit 1; }

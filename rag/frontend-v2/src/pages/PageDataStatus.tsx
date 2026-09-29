@@ -34,10 +34,10 @@ interface SourceView {
 }
 
 const SOURCE_CONFIG: Array<Omit<SourceView, 'knowledge' | 'lastSync' | 'status' | 'task'>> = [
-  { id: 'c_current', target: 'c_current', recordMode: 'current', label: 'C端消费者评论与车主反馈（当前）', domain: 'C' },
-  { id: 'c_history', target: 'c_history', recordMode: 'snapshot', label: 'C端历史快照知识库', domain: 'C' },
-  { id: 'b_business', target: 'b_business', recordMode: 'current', label: 'B端商业情报与政策法规', domain: 'B' },
-  { id: 'kol', target: 'kol', recordMode: 'current', label: 'KOL端达人与合作信息', domain: 'K' },
+  { id: 'c_current', target: 'c_current', recordMode: 'current', label: 'Consumer Reviews and Owner Feedback (Current)', domain: 'C' },
+  { id: 'c_history', target: 'c_history', recordMode: 'snapshot', label: 'Historical Consumer Knowledge Snapshots', domain: 'C' },
+  { id: 'b_business', target: 'b_business', recordMode: 'current', label: 'Business Intelligence and Regulations', domain: 'B' },
+  { id: 'kol', target: 'kol', recordMode: 'current', label: 'Creator and Partnership Information', domain: 'K' },
 ]
 
 function latestRecordTime(records: RagRecord[]): string {
@@ -48,9 +48,9 @@ function latestRecordTime(records: RagRecord[]): string {
 }
 
 function statusLabel(status: ViewStatus): { text: string; color: 'green' | 'blue' | 'red'; dot: string } {
-  if (status === 'error') return { text: '有失败任务', color: 'red', dot: '#DC2626' }
-  if (status === 'syncing') return { text: '后台处理中', color: 'blue', dot: '#2563EB' }
-  return { text: '正常', color: 'green', dot: '#059669' }
+  if (status === 'error') return { text: 'Failed tasks', color: 'red', dot: '#DC2626' }
+  if (status === 'syncing') return { text: 'Processing in background', color: 'blue', dot: '#2563EB' }
+  return { text: 'Healthy', color: 'green', dot: '#059669' }
 }
 
 function sumTasks(tasks: SyncSummaryItem[]): SyncSummaryItem {
@@ -103,7 +103,7 @@ export default function PageDataStatus({ showToast, refreshToken = 0 }: PageData
         }
       }))
     }).catch(errorValue => {
-      if (!controller.signal.aborted) setError(errorValue instanceof Error ? errorValue.message : '数据状态读取失败')
+    if (!controller.signal.aborted) setError(errorValue instanceof Error ? errorValue.message : 'Failed to load data status')
     }).finally(() => {
       if (!controller.signal.aborted) setLoading(false)
     })
@@ -118,35 +118,35 @@ export default function PageDataStatus({ showToast, refreshToken = 0 }: PageData
 
   function refreshStatus() {
     setReload(value => value + 1)
-    showToast('已刷新后台同步状态')
+    showToast('Background sync status refreshed')
   }
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px 40px' }}>
       <Grid4>
-        <MetricCard label="当前来源正常率" value={sources.length ? `${Math.round((healthyCount / sources.length) * 100)}%` : '—'} sub={`${healthyCount}/${sources.length || '—'} 个来源正常`} iconBg="#ECFDF5" iconColor="#059669" iconText="✓" />
-        <MetricCard label="有效知识条目" value={loading ? '—' : totalKnowledge.toLocaleString()} sub="FastAPI 主库当前记录" iconBg="#EFF6FF" iconColor="#2563EB" iconText="▤" />
-        <MetricCard label="失败或超时任务" value={loading ? '—' : overallTask.failed + overallTask.timed_out} sub="后台维护状态" iconBg={errorCount ? '#FEF2F2' : '#ECFDF5'} iconColor={errorCount ? '#DC2626' : '#059669'} iconText={errorCount ? '✕' : '✓'} />
-        <MetricCard label="最近来源变更" value={latest ? formatDateTime(latest) : '—'} sub="按主库更新时间" iconBg="#F5F0FF" iconColor="#7C3AED" iconText="⇄" />
+      <MetricCard label="Healthy Source Rate" value={sources.length ? `${Math.round((healthyCount / sources.length) * 100)}%` : '—'} sub={`${healthyCount}/${sources.length || '—'} healthy sources`} iconBg="#ECFDF5" iconColor="#059669" iconText="✓" />
+      <MetricCard label="Active Knowledge Records" value={loading ? '—' : totalKnowledge.toLocaleString()} sub="Current records in the FastAPI database" iconBg="#EFF6FF" iconColor="#2563EB" iconText="▤" />
+      <MetricCard label="Failed or Timed-out Tasks" value={loading ? '—' : overallTask.failed + overallTask.timed_out} sub="Background maintenance status" iconBg={errorCount ? '#FEF2F2' : '#ECFDF5'} iconColor={errorCount ? '#DC2626' : '#059669'} iconText={errorCount ? '✕' : '✓'} />
+      <MetricCard label="Latest Source Change" value={latest ? formatDateTime(latest) : '—'} sub="Ordered by primary database update time" iconBg="#F5F0FF" iconColor="#7C3AED" iconText="⇄" />
       </Grid4>
 
-      {error && <WarnBox><strong>状态读取失败：</strong>{error}</WarnBox>}
-      {loading && <InfoBox>正在读取当前记录和后台同步任务状态…</InfoBox>}
+      {error && <WarnBox><strong>Failed to load status:</strong> {error}</WarnBox>}
+      {loading && <InfoBox>Loading current records and background sync jobs…</InfoBox>}
 
       <Card>
         <CardHead>
-          <CardTitle icon="⇄">同步状态</CardTitle>
+          <CardTitle icon="⇄">Sync Status</CardTitle>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Badge text="后台自动维护" color="blue" />
-            <button onClick={refreshStatus} disabled={loading} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 5, border: '0.5px solid var(--border)', background: '#F8FAFC', color: '#374151', cursor: loading ? 'not-allowed' : 'pointer' }}>↻ 刷新状态</button>
+            <Badge text="Automatically maintained" color="blue" />
+            <button onClick={refreshStatus} disabled={loading} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 5, border: '0.5px solid var(--border)', background: '#F8FAFC', color: '#374151', cursor: loading ? 'not-allowed' : 'pointer' }}>↻ Refresh Status</button>
           </div>
         </CardHead>
         <CardBody>
           <div style={{ fontSize: 11, color: '#6B7280', lineHeight: 1.7 }}>
-            C、B、KOL 的数据推送和 MaxKB 同步由后端任务处理；前端只读取状态，不直接触发同步或重同步。
+        Data delivery from the consumer, business, and creator modules and MaxKB synchronization are handled by backend jobs. The frontend only reads status and does not trigger synchronization or resynchronization.
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
-            {['三端接收', '版本校验', '主库入账', '后台同步 MaxKB', '索引状态回写'].map((step, index, all) => (
+      {['Received by All Modules', 'Version Check', 'Primary Database Write', 'MaxKB Background Sync', 'Index Status Update'].map((step, index, all) => (
               <span key={step} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ background: '#F8FAFC', border: '0.5px solid var(--border)', borderRadius: 6, padding: '5px 10px', fontSize: 10, color: '#374151' }}>{step}</span>
                 {index < all.length - 1 && <span style={{ color: '#94A3B8' }}>→</span>}
@@ -157,11 +157,11 @@ export default function PageDataStatus({ showToast, refreshToken = 0 }: PageData
       </Card>
 
       <Card>
-        <CardHead><CardTitle icon="▤">三端数据状态</CardTitle><SectionNote>{loading ? '读取中…' : '数据来自正式 RAG Hub 接口'}</SectionNote></CardHead>
+      <CardHead><CardTitle icon="▤">Data Status by Module</CardTitle><SectionNote>{loading ? 'Loading…' : 'Data is provided by the production RAG Hub API'}</SectionNote></CardHead>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr>
-              {['数据来源', '有效记录', '最近变更', '状态', '已完成任务', '失败 / 超时'].map(title => (
+              {['Data Source', 'Active Records', 'Latest Change', 'Status', 'Completed Tasks', 'Failed / Timed out'].map(title => (
                 <th key={title} style={{ fontSize: 10, fontWeight: 500, color: '#6B7280', textAlign: 'left', padding: '8px 12px', background: '#F8FAFC', borderBottom: '0.5px solid var(--border)', whiteSpace: 'nowrap' }}>{title}</th>
               ))}
             </tr></thead>
@@ -176,7 +176,7 @@ export default function PageDataStatus({ showToast, refreshToken = 0 }: PageData
                         <span style={{ fontSize: 11, fontWeight: 600, color: '#111827' }}>{source.label}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #F1F5F9', fontSize: 12 }}>{source.knowledge.toLocaleString()} 条</td>
+        <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #F1F5F9', fontSize: 12 }}>{source.knowledge.toLocaleString()} records</td>
                     <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #F1F5F9', fontSize: 10, color: '#6B7280', whiteSpace: 'nowrap' }}>{formatDateTime(source.lastSync)}</td>
                     <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #F1F5F9' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: display.dot }} /><Badge text={display.text} color={display.color} /></span></td>
                     <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #F1F5F9', fontSize: 11, color: '#059669' }}>{source.task.completed}</td>
@@ -190,19 +190,19 @@ export default function PageDataStatus({ showToast, refreshToken = 0 }: PageData
       </Card>
 
       <Card>
-        <CardHead><CardTitle icon="⚠">后台任务摘要</CardTitle><Badge text={overallTask.failed || overallTask.timed_out ? '需后台关注' : '无失败任务'} color={overallTask.failed || overallTask.timed_out ? 'amber' : 'green'} /></CardHead>
+        <CardHead><CardTitle icon="⚠">Background Task Summary</CardTitle><Badge text={overallTask.failed || overallTask.timed_out ? 'Requires administrator attention' : 'No failed tasks'} color={overallTask.failed || overallTask.timed_out ? 'amber' : 'green'} /></CardHead>
         <CardBody>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
             {([
-              ['待处理', overallTask.pending],
-              ['处理中', overallTask.processing],
-              ['已完成', overallTask.completed],
-              ['失败', overallTask.failed],
-              ['超时', overallTask.timed_out],
+      ['Pending', overallTask.pending],
+      ['Processing', overallTask.processing],
+      ['Completed', overallTask.completed],
+              ['Failed', overallTask.failed],
+              ['Timed out', overallTask.timed_out],
             ] as const).map(([label, value]) => (
               <div key={label} style={{ background: '#F8FAFC', borderRadius: 6, padding: '9px 10px' }}>
                 <div style={{ fontSize: 9, color: '#6B7280' }}>{label}</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: value && (label === '失败' || label === '超时') ? '#DC2626' : '#111827' }}>{value}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: value && (label === 'Failed' || label === 'Timed out') ? '#DC2626' : '#111827' }}>{value}</div>
               </div>
             ))}
           </div>
@@ -210,7 +210,7 @@ export default function PageDataStatus({ showToast, refreshToken = 0 }: PageData
       </Card>
 
       <WarnBox>
-        <strong>故障隔离说明：</strong>RAG 页面只读展示状态；C、B、KOL 上游系统不依赖页面操作。正式同步、重试和重建由后台维护接口或上游 Outbox 执行。
+      <strong>Fault isolation:</strong> The RAG page displays status in read-only mode. Upstream consumer, business, and creator systems do not depend on page actions. Production sync, retries, and rebuilds are handled by backend maintenance APIs or the upstream outbox.
       </WarnBox>
     </div>
   )

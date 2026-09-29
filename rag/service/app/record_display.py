@@ -28,37 +28,37 @@ _C_FEEDBACK_TYPES = frozenset({
 _C_RISK_TYPES = frozenset({"consumer_recall_risk", "consumer_legal_risk"})
 
 _JOURNEY_STAGE_LABELS = {
-    "pre_sales_awareness": "售前认知",
-    "pre_sales_consideration": "售前考虑",
-    "purchase": "购买",
-    "delivery": "交付",
-    "ownership": "用车",
-    "after_sales": "售后服务",
-    "after_sales_service": "售后服务",
-    "renewal": "续购",
+    "pre_sales_awareness": "Pre-sales awareness",
+    "pre_sales_consideration": "Pre-sales consideration",
+    "purchase": "Purchase",
+    "delivery": "Delivery",
+    "ownership": "Ownership",
+    "after_sales": "After-sales service",
+    "after_sales_service": "After-sales service",
+    "renewal": "Renewal",
 }
 _ATTITUDE_LABELS = {
-    "positive": "正面",
-    "negative": "负面",
-    "neutral": "中性",
-    "mixed": "混合",
+    "positive": "Positive",
+    "negative": "Negative",
+    "neutral": "Neutral",
+    "mixed": "Mixed",
 }
 _RISK_LABELS = {
-    "recall_signal": "召回风险信号",
-    "legal_action_signal": "法律风险信号",
-    "class_action": "集体诉讼风险",
-    "overheat": "过热风险",
-    "battery": "电池",
-    "consumer_rights": "消费者权益",
-    "brand_trust": "品牌信任",
+    "recall_signal": "Recall risk signal",
+    "legal_action_signal": "Legal risk signal",
+    "class_action": "Class action risk",
+    "overheat": "Overheating risk",
+    "battery": "Battery",
+    "consumer_rights": "Consumer rights",
+    "brand_trust": "Brand trust",
 }
 _TREND_LABELS = {
-    "up": "上升",
-    "down": "下降",
-    "stable": "稳定",
-    "increasing": "上升",
-    "decreasing": "下降",
-    "unchanged": "稳定",
+    "up": "Increasing",
+    "down": "Decreasing",
+    "stable": "Stable",
+    "increasing": "Increasing",
+    "decreasing": "Decreasing",
+    "unchanged": "Unchanged",
 }
 
 
@@ -152,13 +152,13 @@ def _period_text(payload: Mapping[str, Any]) -> str | None:
     start = _format_date(payload.get("period_start"))
     end = _format_date(payload.get("period_end"))
     if start and end:
-        return f"统计期为{start}至{end}"
+        return f"Reporting period: {start} to {end}"
     if start or end:
-        return f"统计期为{start or end}"
+        return f"Reporting period: {start or end}"
     return None
 
 
-def _join_clauses(clauses: Sequence[str], *, separator: str = "，") -> str:
+def _join_clauses(clauses: Sequence[str], *, separator: str = ", ") -> str:
     return separator.join(clause for clause in clauses if clause)
 
 
@@ -166,31 +166,31 @@ def _journey_summary(payload: Mapping[str, Any], result: Mapping[str, Any]) -> s
     stage = _label(payload.get("journey_stage"), _JOURNEY_STAGE_LABELS)
     count = _format_number(payload.get("signal_count"))
     if stage and count:
-        first = f"{stage}阶段共{count}条反馈"
+        first = f"{stage}: {count} feedback items"
     elif count:
-        first = f"共{count}条反馈"
+        first = f"{count} feedback items"
     elif stage:
-        first = f"{stage}阶段有消费者反馈"
+        first = f"Consumer feedback during {stage}"
     else:
         first = ""
 
     clauses = [first]
     for key, label in (
-        ("positive_ratio", "正面情绪占"),
-        ("neutral_ratio", "中性情绪占"),
-        ("negative_ratio", "负面情绪占"),
+        ("positive_ratio", "Positive sentiment: "),
+        ("neutral_ratio", "Neutral sentiment: "),
+        ("negative_ratio", "Negative sentiment: "),
     ):
         value = _format_percent(result.get(key))
         if value:
             clauses.append(label + value)
     trend = _label(result.get("trend_direction"), _TREND_LABELS)
     if trend:
-        clauses.append("整体趋势" + trend)
+        clauses.append("Overall trend: " + trend)
     body = _join_clauses(clauses)
     period = _period_text(payload)
     if period:
-        body += ("；" if body else "") + period
-    return body + "。" if body else "暂无可展示摘要。"
+        body += ("; " if body else "") + period
+    return body + "." if body else "No summary available."
 
 
 def _nps_summary(result: Mapping[str, Any]) -> str:
@@ -198,28 +198,28 @@ def _nps_summary(result: Mapping[str, Any]) -> str:
     nps = _format_number(result.get("nps_value"))
     change = _format_signed_number(result.get("change_from_previous"))
     if nps:
-        first.append(f"NPS预测值为{nps}")
+        first.append(f"NPS forecast: {nps}")
     if change:
-        first.append(f"较前期{change}")
+        first.append(f"Change from previous period: {change}")
     second: list[str] = []
     for key, label in (
-        ("promoter_ratio", "推荐者占"),
-        ("passive_ratio", "中立者占"),
-        ("detractor_ratio", "贬损者占"),
+        ("promoter_ratio", "Promoters: "),
+        ("passive_ratio", "Passives: "),
+        ("detractor_ratio", "Detractors: "),
     ):
         value = _format_percent(result.get(key))
         if value:
             second.append(label + value)
-    body = _join_clauses(first)
+    body = _join_clauses(first, separator="; ")
     if second:
-        body += ("；" if body else "") + _join_clauses(second)
-    return body + "。" if body else "暂无可展示摘要。"
+        body += ("; " if body else "") + _join_clauses(second, separator="; ")
+    return body + "." if body else "No summary available."
 
 
 def _key_complaints_summary(result: Mapping[str, Any]) -> str:
     raw_complaints = result.get("complaints")
     if not isinstance(raw_complaints, Sequence) or isinstance(raw_complaints, (str, bytes)):
-        return "暂无可展示摘要。"
+        return "No summary available."
     complaints = [item for item in raw_complaints if isinstance(item, Mapping)]
     complaints.sort(key=lambda item: _number(item.get("frequency")) or 0, reverse=True)
     details: list[str] = []
@@ -230,19 +230,19 @@ def _key_complaints_summary(result: Mapping[str, Any]) -> str:
         trend = _label(item.get("trend_direction"), _TREND_LABELS)
         attributes = []
         if frequency:
-            attributes.append(f"{frequency}次")
+            attributes.append(f"{frequency} occurrences")
             total_frequency += float(_number(item.get("frequency")) or 0)
         if trend:
-            attributes.append("趋势" + trend)
+            attributes.append("Trend: " + trend)
         if topic:
-            details.append(topic + (f"（{_join_clauses(attributes)}）" if attributes else ""))
+            details.append(topic + (f" ({_join_clauses(attributes, separator=', ')})" if attributes else ""))
     if not details:
-        return "暂无可展示摘要。"
-    body = "主要抱怨集中在" + _join_clauses(details, separator="、")
+        return "No summary available."
+    body = "Key complaints: " + _join_clauses(details, separator="; ")
     if total_frequency:
         total = _format_number(total_frequency)
-        body += f"，重点项共{total}次"
-    body += "；其余抱怨见结构化明细。"
+        body += f". Top items total {total} occurrences"
+    body += ". See structured details for other complaints."
     return body
 
 
@@ -250,43 +250,43 @@ def _brand_attitude_summary(result: Mapping[str, Any]) -> str:
     clauses: list[str] = []
     attitude = _label(result.get("attitude"), _ATTITUDE_LABELS)
     if attitude:
-        clauses.append("当前品牌态度为" + attitude)
+        clauses.append("Current brand sentiment: " + attitude)
     for key, label in (
-        ("positive_ratio", "正面情绪占"),
-        ("neutral_ratio", "中性情绪占"),
-        ("negative_ratio", "负面情绪占"),
+        ("positive_ratio", "Positive sentiment: "),
+        ("neutral_ratio", "Neutral sentiment: "),
+        ("negative_ratio", "Negative sentiment: "),
     ):
         value = _format_percent(result.get(key))
         if value:
             clauses.append(label + value)
     trend = _label(result.get("trend_direction"), _TREND_LABELS)
     if trend:
-        clauses.append("整体趋势" + trend)
+        clauses.append("Overall trend: " + trend)
     body = _join_clauses(clauses)
-    return body + "。" if body else "暂无可展示摘要。"
+    return body + "." if body else "No summary available."
 
 
 def _risk_summary(result: Mapping[str, Any], threshold_exceeded: bool) -> str:
-    subject = _label(result.get("part"), _RISK_LABELS) or _label(result.get("risk_type"), _RISK_LABELS) or "当前风险"
+    subject = _label(result.get("part"), _RISK_LABELS) or _label(result.get("risk_type"), _RISK_LABELS) or "Current risk"
     hit_count = _format_number(result.get("hit_count"))
     threshold = _format_number(result.get("threshold"))
     if threshold_exceeded:
         if hit_count and threshold:
-            body = f"{subject}当前命中{hit_count}次，已达到{threshold}次预警阈值，当前形成正式风险预警。"
+            body = f"{subject}: {hit_count} hits reached the alert threshold of {threshold}, creating a production risk alert."
         elif hit_count:
-            body = f"{subject}当前命中{hit_count}次，当前形成正式风险预警。"
+            body = f"{subject}: {hit_count} hits. A production risk alert is active."
         else:
-            body = f"{subject}当前形成正式风险预警。"
+            body = f"A production risk alert is active for {subject}."
     else:
         if hit_count and threshold:
-            body = f"{subject}当前命中{hit_count}次，预警阈值为{threshold}次，当前为正常风险评估，尚未触发正式风险预警。"
+            body = f"{subject}: {hit_count} hits against an alert threshold of {threshold}. Risk assessment is normal; no production alert has been triggered."
         elif hit_count:
-            body = f"{subject}当前命中{hit_count}次，当前为正常风险评估，尚未触发正式风险预警。"
+            body = f"{subject}: {hit_count} hits. Risk assessment is normal; no production alert has been triggered."
         else:
-            body = f"{subject}当前为正常风险评估，尚未触发正式风险预警。"
+            body = f"Risk assessment is normal for {subject}; no production alert has been triggered."
     risk_status = _label(result.get("risk_status"))
     if risk_status:
-        body += f"风险状态为{risk_status}。"
+        body += f" Risk status: {risk_status}."
     return body
 
 
@@ -295,7 +295,7 @@ def _business_summary(payload: Mapping[str, Any]) -> str:
         value = _text(payload.get(key))
         if value:
             return value
-    return "暂无可展示摘要。"
+        return "No summary available."
 
 
 def _kol_summary(record_type: str, payload: Mapping[str, Any]) -> str:
@@ -310,12 +310,12 @@ def _kol_summary(record_type: str, payload: Mapping[str, Any]) -> str:
         stage = _text(payload.get("final_stage"))
         performance = _text(payload.get("performance_summary"))
         if project and stage:
-            additions.append(f"项目{project}当前阶段为{stage}")
+            additions.append(f"Project {project} is currently in the {stage} stage")
         if performance and performance != first:
-            additions.append("表现：" + performance)
+            additions.append("Performance: " + performance)
         if additions:
-            return first + "；" + "；".join(additions)
-    return first or "暂无可展示摘要。"
+            return first + "; " + "; ".join(additions)
+    return first or "No summary available."
 
 
 def build_record_display(*, source_system: str, record_type: str, payload_json: Any) -> dict[str, str]:
@@ -348,7 +348,7 @@ def build_record_display(*, source_system: str, record_type: str, payload_json: 
         # consumer feedback and do not infer a risk state from its text.
         category = "project"
         risk_state = "none"
-        summary = "暂无可展示摘要。"
+        summary = "No summary available."
     elif source == "B":
         category = "policy" if record_type == "business_policy" else "project"
         risk_state = "none"
@@ -360,7 +360,7 @@ def build_record_display(*, source_system: str, record_type: str, payload_json: 
     else:
         category = "project"
         risk_state = "none"
-        summary = "暂无可展示摘要。"
+        summary = "No summary available."
 
     return {
         "display_category": category,

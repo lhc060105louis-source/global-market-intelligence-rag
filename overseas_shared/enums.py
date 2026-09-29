@@ -1,22 +1,19 @@
 # -*- coding: utf-8 -*-
-"""三端统一枚举。C端/KOL端/B端均 import 此文件,保证同一个值在三端是同一个字符串。"""
+"""Enums shared by the customer VOC, creator, and B2B workflows.
+
+All three applications import these definitions so that each shared value has
+the same serialized representation across services.
+"""
 from enum import Enum
 
 
 class Country(str, Enum):
-    """
-    国家(ISO 3166-1 alpha-2)。三端统一,替代 C端"德国"、KOL端"DE"、B端"EU全域"。
+    """Country or region codes using ISO 3166-1 alpha-2 where applicable.
 
-    ## 枚举值确认清单
-    | 成员名 | ISO2 码 | 中文名称 |
-    |--------|---------|----------|
-    | DE     | DE      | 德国     |
-    | FR     | FR      | 法国     |
-    | UK     | UK      | 英国     |
-    | ES     | ES      | 西班牙   |
-    | IT     | IT      | 意大利   |
-    | EU     | EU      | EU 层面  |
+    This replaces inconsistent values such as localized country names,
+    country codes, and broad regional labels across the applications.
     """
+
     DE = "DE"
     FR = "FR"
     UK = "UK"
@@ -26,63 +23,37 @@ class Country(str, Enum):
 
 
 class RegType(str, Enum):
-    """
-    法规类型。对齐商分 Excel 主表的法规分类。
+    """Regulatory categories aligned with the compliance taxonomy."""
 
-    ## 枚举值确认清单
-    | 成员名        | 中文标签 |
-    |---------------|----------|
-    | ACCESS        | 准入认证 |
-    | BATTERY       | 电池合规 |
-    | CYBER         | 网络安全 |
-    | DATA_AI       | 数据与AI |
-    | CARBON        | 碳合规   |
-    | EMISSION      | 排放合规 |
-    | MATERIAL      | 材料合规 |
-    | PROCUREMENT   | 公共采购 |
-    | SAFETY        | 安全测评 |
-    | INFRA         | 基础设施 |
-    """
-    ACCESS = "准入认证"
-    BATTERY = "电池合规"
-    CYBER = "网络安全"
-    DATA_AI = "数据与AI"
-    CARBON = "碳合规"
-    EMISSION = "排放合规"
-    MATERIAL = "材料合规"
-    PROCUREMENT = "公共采购"
-    SAFETY = "安全测评"
-    INFRA = "基础设施"
+    ACCESS = "Access Certification"
+    BATTERY = "Battery Compliance"
+    CYBER = "Cybersecurity"
+    DATA_AI = "Data and AI"
+    CARBON = "Carbon Compliance"
+    EMISSION = "Emissions Compliance"
+    MATERIAL = "Materials Compliance"
+    PROCUREMENT = "Public Procurement"
+    SAFETY = "Safety Assessment"
+    INFRA = "Infrastructure"
 
 
 class ImpactLevel(str, Enum):
-    """
-    影响程度。
+    """Impact severity."""
 
-    ## 枚举值确认清单
-    | 成员名 | 中文标签 |
-    |--------|----------|
-    | HIGH   | 高       |
-    | MEDIUM | 中       |
-    | LOW    | 低       |
-    """
-    HIGH = "高"
-    MEDIUM = "中"
-    LOW = "低"
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
 
 
 class Priority(str, Enum):
-    """
-    材料优先级(P0-P3)。对齐 PRD 8.3。
+    """Document priority levels (P0-P3), aligned with PRD section 8.3.
 
-    ## 枚举值确认清单
-    | 成员名 | 取值 | 说明                                         |
-    |--------|------|----------------------------------------------|
-    | P0     | P0   | 必备:缺失直接影响准入/投标资格               |
-    | P1     | P1   | 重要:影响评分/信任/谈判                      |
-    | P2     | P2   | 加分:增强竞争力                              |
-    | P3     | P3   | 关注:持续跟踪,当前不一定适用                 |
+    P0 is mandatory and can affect market access or bid eligibility.
+    P1 affects scoring, trust, or negotiation.
+    P2 improves competitiveness.
+    P3 should be monitored and may not currently apply.
     """
+
     P0 = "P0"
     P1 = "P1"
     P2 = "P2"
@@ -90,61 +61,37 @@ class Priority(str, Enum):
 
 
 class MaterialStatus(str, Enum):
-    """
-    材料准备状态(7 种)。对齐 PRD 8.4。
+    """Document preparation status, aligned with PRD section 8.4."""
 
-    ## 枚举值确认清单
-    | 成员名         | 中文标签 | 说明                                     |
-    |----------------|----------|------------------------------------------|
-    | UNCONFIRMED    | 待确认   | 尚未核实                                 |
-    | READY          | 已准备   | 文件存在、有效、已审核                   |
-    | MISSING        | 缺失     | 确认需要但当前没有                       |
-    | NEED_UPDATE    | 待更新   | 存在旧版本,需更新                        |
-    | REVIEWING      | 审核中   | 已提交,等待确认                          |
-    | EXPIRED        | 已过期   | 超有效期或被新版本取代                   |
-    | NOT_APPLICABLE | 不适用   | 经授权确认不适用                         |
-    """
-    UNCONFIRMED = "待确认"
-    READY = "已准备"
-    MISSING = "缺失"
-    NEED_UPDATE = "待更新"
-    REVIEWING = "审核中"
-    EXPIRED = "已过期"
-    NOT_APPLICABLE = "不适用"
+    UNCONFIRMED = "Unconfirmed"
+    READY = "Ready"
+    MISSING = "Missing"
+    NEED_UPDATE = "Needs Update"
+    REVIEWING = "Under Review"
+    EXPIRED = "Expired"
+    NOT_APPLICABLE = "Not Applicable"
 
 
 class ClientType(str, Enum):
-    """
-    B 端客户类型。对齐 Week2 销售支持模板。
+    """B2B customer types aligned with the Week 2 sales-support template."""
 
-    ## 枚举值确认清单
-    | 成员名             | 中文标签         |
-    |--------------------|------------------|
-    | GOVERNMENT         | 政府 / 市政      |
-    | BUS_OPERATOR       | 公交运营商       |
-    | LOGISTICS          | 物流车队         |
-    | ENTERPRISE_FLEET   | 企业内部车队     |
-    | MOBILITY_PLATFORM  | 出行平台         |
-    """
-    GOVERNMENT = "政府 / 市政"
-    BUS_OPERATOR = "公交运营商"
-    LOGISTICS = "物流车队"
-    ENTERPRISE_FLEET = "企业内部车队"
-    MOBILITY_PLATFORM = "出行平台"
+    GOVERNMENT = "Government / Municipality"
+    BUS_OPERATOR = "Public Transit Operator"
+    LOGISTICS = "Logistics Fleet"
+    ENTERPRISE_FLEET = "Corporate Fleet"
+    MOBILITY_PLATFORM = "Mobility Platform"
 
 
 class SourceLevel(str, Enum):
-    """
-    来源可靠性等级(对齐 V2.0 PRD 9.3)。
+    """Source reliability levels aligned with PRD v2.0 section 9.3.
 
-    ## 枚举值确认清单
-    | 成员名 | 取值 | 说明                                 |
-    |--------|------|--------------------------------------|
-    | T1     | T1   | 官方一手(EUR-Lex, TED, European Commission) |
-    | T2     | T2   | 权威聚合(ACEA, EAFO, Euro NCAP)      |
-    | T3     | T3   | 行业媒体/研究(JATO, Reuters, Autovista) |
-    | T4     | T4   | 未核验(仅作线索,不得进入正式报告)    |
+    T1 represents official primary sources such as EUR-Lex, TED, and the
+    European Commission. T2 covers authoritative aggregators such as ACEA,
+    EAFO, and Euro NCAP. T3 covers industry media and research such as JATO,
+    Reuters, and Autovista. T4 sources are unverified leads and must not be
+    used in formal reports.
     """
+
     T1 = "T1"
     T2 = "T2"
     T3 = "T3"
@@ -152,96 +99,48 @@ class SourceLevel(str, Enum):
 
 
 class RegulationStatus(str, Enum):
-    """
-    法规审核状态（Regulation 专用）。
+    """Review status for regulatory records."""
 
-    ## 枚举值确认清单
-    | 成员名     | 中文标签 |
-    |------------|----------|
-    | DRAFT      | 草稿     |
-    | PENDING    | 待审核   |
-    | APPROVED   | 已审核   |
-    | DEPRECATED | 已失效   |
-    """
-    DRAFT = "草稿"
-    PENDING = "待审核"
-    APPROVED = "已审核"
-    DEPRECATED = "已失效"
+    DRAFT = "Draft"
+    PENDING = "Pending Review"
+    APPROVED = "Approved"
+    DEPRECATED = "Deprecated"
 
 
 class ProjectStage(str, Enum):
-    """
-    政企项目阶段。
+    """Lifecycle stage for public-sector and enterprise projects."""
 
-    ## 枚举值确认清单
-    | 成员名      | 中文标签   |
-    |-------------|------------|
-    | LEAD        | 新线索     |
-    | EVALUATING  | 评估中     |
-    | PREPARING   | 准备投标   |
-    | SUBMITTED   | 已提交     |
-    | WON         | 中标       |
-    | LOST        | 未中标     |
-    | TERMINATED  | 终止       |
-    """
-    LEAD = "新线索"
-    EVALUATING = "评估中"
-    PREPARING = "准备投标"
-    SUBMITTED = "已提交"
-    WON = "中标"
-    LOST = "未中标"
-    TERMINATED = "终止"
+    LEAD = "New Lead"
+    EVALUATING = "Under Evaluation"
+    PREPARING = "Preparing Bid"
+    SUBMITTED = "Submitted"
+    WON = "Won"
+    LOST = "Lost"
+    TERMINATED = "Terminated"
 
 
 class ProjectLevel(str, Enum):
-    """
-    项目投入等级。
+    """Project investment posture."""
 
-    ## 枚举值确认清单
-    | 成员名     | 中文标签   |
-    |------------|------------|
-    | PRIORITY   | 优先跟进   |
-    | OBSERVING  | 持续观察   |
-    | HOLD       | 暂缓投入   |
-    """
-    PRIORITY = "优先跟进"
-    OBSERVING = "持续观察"
-    HOLD = "暂缓投入"
+    PRIORITY = "Priority Follow-up"
+    OBSERVING = "Monitoring"
+    HOLD = "On Hold"
 
 
 class SourceType(str, Enum):
-    """
-    数据来源类型。
+    """Types of intelligence sources."""
 
-    ## 枚举值确认清单
-    | 成员名      | 中文标签   |
-    |-------------|------------|
-    | REGULATION  | 法规       |
-    | POLICY      | 政策       |
-    | PROCUREMENT | 采购       |
-    | INDUSTRY    | 行业数据   |
-    | NEWS        | 新闻资讯   |
-    """
-    REGULATION = "法规"
-    POLICY = "政策"
-    PROCUREMENT = "采购"
-    INDUSTRY = "行业数据"
-    NEWS = "新闻资讯"
+    REGULATION = "Regulation"
+    POLICY = "Policy"
+    PROCUREMENT = "Procurement"
+    INDUSTRY = "Industry Data"
+    NEWS = "News"
 
 
 class AccessMethod(str, Enum):
-    """
-    数据获取方式。
+    """Methods used to retrieve source data."""
 
-    ## 枚举值确认清单
-    | 成员名 | 中文标签 |
-    |--------|----------|
-    | API    | API      |
-    | WEB    | 网页     |
-    | RSS    | RSS      |
-    | MANUAL | 人工     |
-    """
     API = "API"
-    WEB = "网页"
+    WEB = "Web"
     RSS = "RSS"
-    MANUAL = "人工"
+    MANUAL = "Manual"

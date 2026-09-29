@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VOC Sentiment Analysis</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brandMark">VOC</span>
+        <span>Sentiment Analysis</span>
+      </div>
+      <nav>
+        <button class="nav active" data-page="tasks">Task Center</button>
+        <button class="nav" data-page="result">Results</button>
+      </nav>
+      <div class="sideHint">
+        <strong>Workflow</strong>
+        <span>Create a task first, then open its dedicated results page.</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Task Center</h1>
+          <p id="pageMeta">Create a CSV/XLSX import, live collection, or scheduled collection task</p>
+        </div>
+        <button id="refreshBtn">Refresh</button>
+      </header>
+
+      <section id="tasksPage" class="page active">
+        <section class="pageIntro">
+          <div>
+            <span class="eyebrow">VOC Pipeline</span>
+            <h2>Each upload or collection run creates a separate task</h2>
+            <p>When a task finishes, select “Open Results” to view its insights, six-dimensional analysis, and risk monitoring. Historical tasks are kept separate.</p>
+          </div>
+          <div class="introStats" id="taskSummary"></div>
+        </section>
+
+        <div class="taskCreation">
+          <section class="panel">
+            <div class="panelHead">
+              <div>
+                <h3>File Import</h3>
+                <p>Upload a CSV/XLSX file to normalize fields, remove duplicates, clean records, and optionally run analysis.</p>
+              </div>
+              <span class="pill">CSV / XLSX</span>
+            </div>
+            <form id="uploadForm" class="stack">
+              <label class="uploadBox">
+                <input id="fileInput" type="file" accept=".csv,.xlsx">
+                <strong>Choose a file</strong>
+                <span>Required fields: source_id, channel, published_at, language, region, brand, model, text, source_url</span>
+              </label>
+              <div class="formFooter">
+                <label><input id="fileAnalyze" type="checkbox" checked> Analyze automatically</label>
+                <button type="submit" class="primaryBtn">Create Import Task</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panelHead">
+              <div>
+                <h3>Live Collection</h3>
+                <p>YouTube and Autohome records follow the same raw, cleaned, and analysis pipeline.</p>
+              </div>
+              <span class="pill live">Online</span>
+            </div>
+            <div class="stack">
+              <div class="checks">
+                <label><input type="checkbox" class="sourceCheck" value="youtube" checked> YouTube</label>
+                <label><input type="checkbox" class="sourceCheck" value="autohome" checked> Autohome</label>
+              </div>
+<label class="fieldLabel">brand</label>
+<select id="brandSelect">
+  <option value="">Select a brand</option>
+  <option value="BYD">BYD</option>
+  <option value="MG">MG</option>
+  <option value="Volkswagen">Volkswagen</option>
+  <option value="Tesla">Tesla</option>
+  <option value="BMW">BMW</option>
+  <option value="Mercedes-Benz">Mercedes-Benz</option>
+  <option value="Audi">Audi</option>
+  <option value="Volvo">Volvo</option>
+  <option value="Polestar">Polestar</option>
+  <option value="Renault">Renault</option>
+  <option value="Peugeot">Peugeot</option>
+  <option value="Citroën">Citroën</option>
+  <option value="Škoda">Škoda</option>
+  <option value="Cupra">Cupra</option>
+  <option value="Hyundai">Hyundai</option>
+  <option value="Kia">Kia</option>
+</select>
+
+<label class="fieldLabel">vehicle model</label>
+<select id="modelSelect">
+  <option value="">Select a brand first</option>
+</select>
+              <label class="fieldLabel">Autohome public review page URLs</label>
+              <textarea id="autohomeUrls" rows="2" placeholder="Enter one URL per line"></textarea>
+              <div class="formFooter">
+                <label>limit <input id="limitInput" type="number" value="10" min="1" max="100"></label>
+                <label><input id="crawlAnalyze" type="checkbox" checked> Analyze automatically</label>
+                <button id="crawlBtn" class="primaryBtn">Create Collection Task</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section id="activeTaskProgress" class="progressPanel" hidden></section>
+
+        <section class="panel monitorPanel">
+          <div class="panelHead">
+            <div>
+              <h3>Scheduled Collection</h3>
+              <p>Use the sources, keywords, and limit above to create collection tasks on a schedule.</p>
+            </div>
+            <span id="monitorState" class="pill mutedPill">Disabled</span>
+          </div>
+          <div class="monitorRow">
+            <label><input id="monitorEnabled" type="checkbox"> Enable</label>
+            <label>Interval (minutes) <input id="monitorInterval" type="number" min="1" value="60"></label>
+            <button id="saveMonitorBtn">Save Schedule</button>
+            <button id="runMonitorBtn">Run Now</button>
+          </div>
+          <details>
+            <summary>View Current Configuration</summary>
+            <pre id="monitorConfig"></pre>
+          </details>
+        </section>
+
+        <section class="panel">
+          <div class="panelHead">
+            <div>
+              <h3>Tasks</h3>
+              <p>Each task has its own results page. Re-uploading the same file reuses the existing task.</p>
+            </div>
+          </div>
+          <div id="taskList" class="taskCards"></div>
+        </section>
+      </section>
+
+      <section id="resultPage" class="page">
+        <section id="emptyResult" class="emptyState">
+          <h2>No task selected</h2>
+          <p>Return to the Task Center and select “Open Results” for a task.</p>
+          <button class="primaryBtn" id="backToTasksBtn">Go to Task Center</button>
+        </section>
+
+        <section id="resultContent" class="resultContent">
+          <div class="resultHeader">
+            <div>
+              <span class="eyebrow">Task Results</span>
+              <h2 id="resultTitle">Task Results</h2>
+              <p id="resultMeta">Showing data for the selected task only</p>
+            </div>
+            <div class="resultActions">
+              <button id="resultAnalyzeBtn" class="primaryBtn">Analyze</button>
+              <button id="resultDeleteBtn" class="dangerBtn">Delete Task</button>
+              <button id="backBtn">Back to Task Center</button>
+            </div>
+          </div>
+
+          <div id="resultProgress" class="resultProgress" hidden></div>
+
+          <div id="resultStats" class="metricGrid"></div>
+
+          <div class="tabs">
+            <button class="tab" data-tab="data">Standardized Data</button>
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="six">Six-Dimension Insights</button>
+            <button class="tab" data-tab="crisis">Risk Monitoring</button>
+          </div>
+
+          <section id="dataTab" class="tabPage">
+            <section class="panel dataPanel">
+              <div class="panelHead">
+                <div>
+                  <h3>Cleaned, Standardized Data</h3>
+                  <p id="standardDataMeta">CSV/XLSX imports and live collection use the same nine fields.</p>
+                </div>
+                <div class="dataPager">
+                  <button id="dataPrevBtn" aria-label="Previous page">Previous</button>
+                  <span id="dataPageLabel">Page 1</span>
+                  <button id="dataNextBtn" aria-label="Next page">Next</button>
+                </div>
+              </div>
+              <div class="standardTableWindow">
+                <table class="standardTable">
+                  <thead><tr>
+                    <th>source_id</th><th>channel</th><th>published_at</th><th>language</th><th>region</th>
+                    <th>brand</th><th>model</th><th>text</th><th>source_url</th>
+                  </tr></thead>
+                  <tbody id="standardDataBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section id="overviewTab" class="tabPage active">
+            <div id="overviewSummary" class="insightSummary"></div>
+            <div class="grid two">
+              <section class="panel chartPanel">
+                <div class="panelHead"><div><h3>Overall Sentiment</h3><p>Share of positive, neutral, negative, and mixed feedback</p></div></div>
+                <div id="sentimentChart"></div>
+              </section>
+              <section class="panel chartPanel">
+                <div class="panelHead"><div><h3>Analysis Findings</h3><p>Key findings from the selected task</p></div></div>
+                <div id="overviewFindings"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="sixTab" class="tabPage">
+            <div class="sentimentKey"><span><i class="positive"></i>Positive</span><span><i class="neutral"></i>Neutral</span><span><i class="negative"></i>Negative</span><span><i class="mixed"></i>Mixed</span></div>
+            <div class="grid two">
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">01</span><h3>Customer Journey Sentiment</h3><p>Sentiment across customer experience stages</p></div></div><div id="journeyCurve"></div></section>
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">02</span><h3>Estimated Recommendation Intent</h3><p>Estimated from the negative feedback share, on a scale of 0–100</p></div></div><div id="npsBox"></div></section>
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">03</span><h3>Top Complaint Topics</h3><p>Issues mentioned most often</p></div></div><div id="sixComplaints"></div></section>
+              <section class="panel chartPanel"><div class="panelHead"><div><span class="dimensionNo">04</span><h3>Brand Sentiment</h3><p>Share of positive, negative, and other feedback by brand</p></div></div><div id="brandAttitude"></div></section>
+              <section class="panel signalPanel"><div class="panelHead"><div><span class="dimensionNo">05</span><h3>Recall Risk Signals</h3><p>Potential safety, failure, or recall concerns</p></div></div><div id="recallWarning"></div></section>
+              <section class="panel signalPanel"><div class="panelHead"><div><span class="dimensionNo">06</span><h3>Consumer Rights Signals</h3><p>Potential complaints, legal action, or collective claims</p></div></div><div id="rightsRisk"></div></section>
+            </div>
+          </section>
+
+          <section id="crisisTab" class="tabPage">
+            <section id="riskBanner" class="riskBanner"></section>
+            <div id="crisisSummary" class="crisisSummary"></div>
+            <section class="panel chartPanel">
+              <div class="panelHead"><div><h3>Daily Feedback and Negative Trend</h3><p>Gray shows all feedback that day; red shows negative feedback.</p></div></div>
+              <div id="negativeTrend"></div>
+            </section>
+            <div class="triggerGuide">
+              <div><strong>Negative Feedback</strong><span>Expresses dissatisfaction or an issue without reaching crisis level</span></div>
+              <div><strong>Recall Signal</strong><span>Mentions a safety failure, affected batch, or recall request</span></div>
+              <div><strong>Consumer Rights Signal</strong><span>Mentions a complaint, legal action, or collective claim</span></div>
+            </div>
+            <div class="grid two crisisDetails">
+              <section class="panel"><div class="panelHead"><div><h3>Alert History</h3><p>Triggered high-risk signals listed by time</p></div></div><div id="alertTimeline"></div></section>
+              <section class="panel"><div class="panelHead"><div><h3>High-Risk Original Feedback</h3><p>Trace each record to its source, vehicle model, region, and original link</p></div></div><div id="crisisOriginals"></div></section>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <div id="toast"></div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

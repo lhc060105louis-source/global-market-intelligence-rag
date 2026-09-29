@@ -59,18 +59,18 @@ COUNTRY_ALIASES = {
     "GB": "UK",
     "UK": "UK",
     "UNITED KINGDOM": "UK",
-    "英国": "UK",
+    "United Kingdom": "UK",
     "DE": "DE",
     "GERMANY": "DE",
     "DEUTSCHLAND": "DE",
-    "德国": "DE",
+    "Germany": "DE",
     "FR": "FR",
     "FRANCE": "FR",
-    "法国": "FR",
+    "France": "FR",
     "EU": "EU",
     "EUROPEAN UNION": "EU",
-    "欧盟": "EU",
-    "EU全域": "EU",
+    "European Union": "EU",
+    "EU-wide": "EU",
 }
 
 
@@ -80,7 +80,7 @@ def normalize_region(value: Any) -> str:
 
 
 def split_categories(value: Any) -> list[str]:
-    candidates = value if isinstance(value, list) else re.split(r"[,，;；/|\n]+", str(value or ""))
+    candidates = value if isinstance(value, list) else re.split(r"[,;/|\n]+", str(value or ""))
     result: list[str] = []
     for candidate in candidates:
         text = str(candidate).strip()
@@ -95,14 +95,14 @@ def cooperation_conclusion(commercial_score: float, risk_score: float) -> str:
     commercial = "high" if commercial_score >= 80 else "medium" if commercial_score >= 65 else "low"
     risk = "low" if risk_score <= 30 else "medium" if risk_score <= 60 else "high"
     actions = {
-        "high:low": "强烈推荐合作，优先推进签约",
-        "high:medium": "高价值但需管控风险，合同中加强约束条款",
-        "high:high": "高价值但高风险，进入法务复核流程后再决策",
-        "medium:low": "稳健合作对象，正常推进",
-        "medium:medium": "可考虑合作，关注内容专业度提升",
-        "low:high": "不建议合作，直接排除",
+    "high:low": "Strong partnership candidate; prioritize contract signing.",
+    "high:medium": "High value with manageable risk; strengthen contract safeguards.",
+    "high:high": "High value but high risk; obtain legal review before deciding.",
+    "medium:low": "Reliable partnership candidate; proceed with normal diligence.",
+    "medium:medium": "Partnership may be considered; focus on improving content expertise.",
+    "low:high": "Partnership not recommended; exclude from consideration.",
     }
-    return actions.get(f"{commercial}:{risk}", "综合评估后决策")
+    return actions.get(f"{commercial}:{risk}", "Make a decision after an overall assessment.")
 
 
 def _aware_utc(value: Any, fallback: datetime) -> datetime:

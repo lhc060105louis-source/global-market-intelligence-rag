@@ -21,10 +21,10 @@ const SEMANTIC_FIELDS: Array<{
   domainClass?: string
   value: (response: QueryResponse) => string | null
 }> = [
-  { key: 'summary', title: '综合结论', number: '01', value: response => response.output.综合结论 },
-  { key: 'consumer_signal', title: 'C端消费者信号', number: '02', domainClass: 'domain-c', value: response => response.output.C端消费者信号 },
-  { key: 'business_impact', title: 'B端商业影响', number: '03', domainClass: 'domain-b', value: response => response.output.B端商业影响 },
-  { key: 'kol_impact', title: 'KOL传播与合作影响', number: '04', domainClass: 'domain-k', value: response => response.output.KOL传播与合作影响 },
+  { key: 'summary', title: 'Summary', number: '01', value: response => response.output.summary },
+  { key: 'consumer_signal', title: 'Consumer Signals', number: '02', domainClass: 'domain-c', value: response => response.output.consumer_signal },
+  { key: 'business_impact', title: 'Business Impact', number: '03', domainClass: 'domain-b', value: response => response.output.business_impact },
+  { key: 'kol_impact', title: 'Creator Impact', number: '04', domainClass: 'domain-k', value: response => response.output.kol_impact },
 ]
 
 function escapeHtml(value: unknown): string {
@@ -56,10 +56,10 @@ function safeExternalUrl(value: string | null | undefined): string {
 }
 
 function sourceLabel(source: string): string {
-  if (source === 'maxkb') return 'LLM总结'
-  if (source === 'deterministic') return '证据兜底'
-  if (source === 'none') return '无本域证据'
-  return '已返回结果'
+  if (source === 'maxkb') return 'LLM summary'
+  if (source === 'deterministic') return 'Evidence-based fallback'
+  if (source === 'none') return 'No domain-specific evidence'
+  return 'Result returned'
 }
 
 function sourceClass(source: string): string {
@@ -72,22 +72,22 @@ function sourceClass(source: string): string {
 function semanticDisplayValue(response: QueryResponse, field: SemanticFieldKey, value: string | null): string {
   const info = semanticFieldInfo(response, field)
   if (info.source === 'none') {
-    return info.notice || (field === 'actions' ? '本次没有可展示的行动建议。' : '本次选定范围内没有可展示的有效证据。')
+    return info.notice || (field === 'actions' ? 'No action recommendations are available.' : 'No valid evidence is available for the selected scope.')
   }
-  return value?.trim() || '未返回总结。'
+  return value?.trim() || 'No summary returned.'
 }
 
 function splitActions(value: string | null | undefined): string[] {
   if (!value) return []
-  return value.split(/[；;\n]/).map(item => item.trim()).filter(Boolean)
+  return value.split(/[;\n]/).map(item => item.trim()).filter(Boolean)
 }
 
 function formatSourceSystem(domain: string): string {
-  return domain === 'C' ? 'C端' : domain === 'B' ? 'B端' : 'KOL端'
+  return domain === 'C' ? 'Consumer' : domain === 'B' ? 'Business' : 'Creator'
 }
 
 function formatTimestamp(value: Date): string {
-  return value.toLocaleString('zh-CN', { hour12: false })
+  return value.toLocaleString('en-US', { hour12: true })
 }
 
 function fileTimestamp(value: Date): string {
@@ -122,16 +122,16 @@ function evidenceDomain(target: string): string {
 }
 
 function renderEvidence(response: QueryResponse, evidence: BriefEvidenceItem[]): string {
-  const references = response.output.简化证据 || []
+  const references = response.output.evidence || []
   const detailedIds = new Set(evidence.flatMap(item => [item.record.id, item.record.source_record_id]))
   const referenceOnly = references.filter(reference => !detailedIds.has(reference.record_id))
   const total = Math.max(evidence.length, new Set([
     ...evidence.map(item => item.record.id),
     ...references.map(reference => reference.record_id),
   ]).size)
-  if (!evidence.length && !referenceOnly.length) return '<div class="empty">本次没有可追溯的关键证据。</div>'
+  if (!evidence.length && !referenceOnly.length) return '<div class="empty">No traceable evidence is available for this query.</div>'
 
-  return `<div class="evidence-summary">共 ${escapeHtml(total)} 条引用；已加载 ${escapeHtml(evidence.length)} 条记录详情${referenceOnly.length ? `，另有 ${escapeHtml(referenceOnly.length)} 条保留引用元数据` : ''}。</div>
+  return `<div class="evidence-summary">${escapeHtml(total)} references; ${escapeHtml(evidence.length)} record details loaded${referenceOnly.length ? `; metadata retained for ${escapeHtml(referenceOnly.length)} additional references` : ''}.</div>
   <div class="evidence-list">
     ${evidence.map((item, index) => {
       const record = item.record
@@ -144,15 +144,15 @@ function renderEvidence(response: QueryResponse, evidence: BriefEvidenceItem[]):
           <div class="evidence-title-row">
             <span class="domain-mark small">${escapeHtml(recordDomain(record))}</span>
             <h3>${escapeHtml(recordTitle(record))}</h3>
-            <span class="score">相关度 ${escapeHtml(score)}</span>
+            <span class="score">Relevance ${escapeHtml(score)}</span>
           </div>
-          <p>${renderText(recordSummary(record), '暂无可展示摘要。')}</p>
+          <p>${renderText(recordSummary(record), 'No summary available.')}</p>
           <div class="evidence-meta">
             <span>${escapeHtml(formatSourceSystem(record.source_system))}</span>
-            <span>业务时间：${escapeHtml(date)}</span>
-            <span>版本：${escapeHtml(record.source_version)}</span>
-            <span>知识库：${escapeHtml(record.target_knowledge_base)}</span>
-            ${sourceUrl ? `<a href="${renderAttribute(sourceUrl)}" target="_blank" rel="noreferrer">打开来源</a>` : ''}
+            <span>Business date: ${escapeHtml(date)}</span>
+            <span>Version: ${escapeHtml(record.source_version)}</span>
+            <span>Knowledge base: ${escapeHtml(record.target_knowledge_base)}</span>
+            ${sourceUrl ? `<a href="${renderAttribute(sourceUrl)}" target="_blank" rel="noreferrer">Open source</a>` : ''}
           </div>
         </div>
       </article>`
@@ -166,13 +166,13 @@ function renderEvidence(response: QueryResponse, evidence: BriefEvidenceItem[]):
         <div class="evidence-main">
           <div class="evidence-title-row">
             <span class="domain-mark small">${escapeHtml(domain)}</span>
-            <h3>引用记录 ${renderText(reference.record_id)}</h3>
-            <span class="score">相关度 ${escapeHtml(score)}</span>
+            <h3>Referenced record ${renderText(reference.record_id)}</h3>
+            <span class="score">Relevance ${escapeHtml(score)}</span>
           </div>
-          <p>记录详情未在当前页面加载，保留该引用的追溯元数据。</p>
+          <p>Record details were not loaded on this page. Traceability metadata is retained for this reference.</p>
           <div class="evidence-meta">
-            <span>知识库：${escapeHtml(reference.target_knowledge_base)}</span>
-            <span>版本：${escapeHtml(reference.source_version)}</span>
+            <span>Knowledge base: ${escapeHtml(reference.target_knowledge_base)}</span>
+            <span>Version: ${escapeHtml(reference.source_version)}</span>
           </div>
         </div>
       </article>`
@@ -181,14 +181,14 @@ function renderEvidence(response: QueryResponse, evidence: BriefEvidenceItem[]):
 }
 
 function renderDataTimes(response: QueryResponse): string {
-  const values = (response.output.数据时间 || []).filter(value => value && value.trim())
-  if (!values.length) return '<span class="empty-inline">当前响应未返回明确的数据时间。</span>'
+  const values = (response.output.data_time || []).filter(value => value && value.trim())
+  if (!values.length) return '<span class="empty-inline">The response does not include a specific data time.</span>'
   return values.map(value => `<span class="time-chip">${renderText(value)}</span>`).join('')
 }
 
 function renderActions(response: QueryResponse): string {
-  const actions = splitActions(response.output.文字行动建议)
-  if (!actions.length) return '<div class="empty">本次没有可展示的行动建议。</div>'
+  const actions = splitActions(response.output.action_recommendations)
+  if (!actions.length) return '<div class="empty">No action recommendations are available.</div>'
   return `<ol class="action-list">${actions.map((action, index) => `<li><span class="action-number">${index + 1}</span><span>${renderText(action)}</span></li>`).join('')}</ol>`
 }
 
@@ -200,17 +200,17 @@ export function buildBriefHtml(response: QueryResponse, evidence: BriefEvidenceI
   const output = response.output
   const status = semanticStatusLabel(response)
   const generatedTime = formatTimestamp(generatedAt)
-  const title = `RAG 查询简报 - ${response.query}`
+  const title = `RAG Query Brief - ${response.query}`
   const fields = SEMANTIC_FIELDS
     .filter(field => field.key !== 'summary')
     .map(field => renderDomainCard(response, field.key, field.title, field.domainClass === 'domain-c' ? 'C' : field.domainClass === 'domain-b' ? 'B' : 'K', field.value(response)))
     .join('')
   const degradedReason = response.query_meta.degraded_reason
-    ? `<span>降级原因：${renderText(response.query_meta.degraded_reason)}</span>`
+    ? `<span>Fallback reason: ${renderText(response.query_meta.degraded_reason)}</span>`
     : ''
 
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -327,55 +327,55 @@ export function buildBriefHtml(response: QueryResponse, evidence: BriefEvidenceI
   <main class="report">
     <header class="report-header">
       <div class="brand">
-        <span class="brand-mark">知</span>
-        <div><div class="eyebrow">全局 RAG 中枢</div><h1>查询简报</h1></div>
+        <span class="brand-mark">R</span>
+        <div><div class="eyebrow">Global RAG Hub</div><h1>Query Brief</h1></div>
       </div>
-      <div class="generated"><strong>生成时间</strong><br>${escapeHtml(generatedTime)}<br>基于本次查询返回的有效证据</div>
+      <div class="generated"><strong>Generated</strong><br>${escapeHtml(generatedTime)}<br>Based on valid evidence returned for this query</div>
     </header>
 
     <section class="card hero">
-      <div class="label">查询问题</div>
+      <div class="label">Question</div>
       <p class="question">${renderText(response.query)}</p>
       <div class="meta-grid">
-        <div class="meta-item"><div class="label">查询范围</div><div class="meta-value">${renderText(response.selected_targets.join('、'))}</div></div>
-        <div class="meta-item"><div class="label">查询状态</div><div class="meta-value">${escapeHtml(status)}</div><div class="meta-sub">${renderText(response.query_meta.generation_source)}</div></div>
-        <div class="meta-item"><div class="label">有效证据</div><div class="meta-value">${renderMetaValue(response.evidence_count)} 条</div><div class="meta-sub">简化证据</div></div>
-        <div class="meta-item"><div class="label">总耗时</div><div class="meta-value">${renderMetaValue(response.query_meta.total_ms)} ms</div><div class="meta-sub">检索 ${renderMetaValue(response.query_meta.retrieval_ms)} ms · 生成 ${renderMetaValue(response.query_meta.generation_ms)} ms</div></div>
+        <div class="meta-item"><div class="label">Query Scope</div><div class="meta-value">${renderText(response.selected_targets.join(', '))}</div></div>
+        <div class="meta-item"><div class="label">Query Status</div><div class="meta-value">${escapeHtml(status)}</div><div class="meta-sub">${renderText(response.query_meta.generation_source)}</div></div>
+        <div class="meta-item"><div class="label">Valid Evidence</div><div class="meta-value">${renderMetaValue(response.evidence_count)} items</div><div class="meta-sub">Evidence</div></div>
+        <div class="meta-item"><div class="label">Total Duration</div><div class="meta-value">${renderMetaValue(response.query_meta.total_ms)} ms</div><div class="meta-sub">Retrieval ${renderMetaValue(response.query_meta.retrieval_ms)} ms · Generation ${renderMetaValue(response.query_meta.generation_ms)} ms</div></div>
       </div>
-      <div class="trace"><span>语义生成：${escapeHtml(status)}</span>${degradedReason}</div>
+      <div class="trace"><span>Response generation: ${escapeHtml(status)}</span>${degradedReason}</div>
     </section>
 
     <section class="section">
-      <div class="section-head"><div class="section-title"><span class="section-number">01</span><h2>综合结论</h2></div>${renderSemanticBadge(response, 'summary')}</div>
-      <div class="conclusion">${renderText(semanticDisplayValue(response, 'summary', output.综合结论))}</div>
+      <div class="section-head"><div class="section-title"><span class="section-number">01</span><h2>Summary</h2></div>${renderSemanticBadge(response, 'summary')}</div>
+      <div class="conclusion">${renderText(semanticDisplayValue(response, 'summary', output.summary))}</div>
     </section>
 
     <section class="section">
-      <div class="section-head"><div class="section-title"><span class="section-number">02—04</span><h2>三端业务回答</h2></div><span class="label" style="margin:0">各域仅依据对应证据</span></div>
+      <div class="section-head"><div class="section-title"><span class="section-number">02—04</span><h2>Domain Analysis</h2></div><span class="label" style="margin:0">Each domain is based only on its supporting evidence.</span></div>
       <div class="domain-grid">${fields}</div>
     </section>
 
     <section class="section">
-      <div class="section-head"><div class="section-title"><span class="section-number">05</span><h2>文字行动建议</h2></div><span class="label" style="margin:0">随本次证据生成</span></div>
+      <div class="section-head"><div class="section-title"><span class="section-number">05</span><h2>Action Recommendations</h2></div><span class="label" style="margin:0">Generated from the evidence for this query</span></div>
       ${renderActions(response)}
     </section>
 
     <section class="section">
-      <div class="section-head"><div class="section-title"><span class="section-number">06</span><h2>简化证据</h2></div><span class="label" style="margin:0">${escapeHtml(evidence.length)} 条详情</span></div>
+      <div class="section-head"><div class="section-title"><span class="section-number">06</span><h2>Evidence</h2></div><span class="label" style="margin:0">${escapeHtml(evidence.length)} details</span></div>
       ${renderEvidence(response, evidence)}
     </section>
 
     <section class="section">
-      <div class="section-head"><div class="section-title"><span class="section-number">07</span><h2>数据时间</h2></div></div>
+      <div class="section-head"><div class="section-title"><span class="section-number">07</span><h2>Data Time</h2></div></div>
       <div class="time-list">${renderDataTimes(response)}</div>
     </section>
 
     <section class="section">
-      <div class="section-head"><div class="section-title"><span class="section-number">08</span><h2>结论边界</h2></div></div>
-      <div class="boundary">${renderText(output.结论边界 || '本回答仅依据当前有效知识生成，不代替质量鉴定、法律判断或正式业务决策。')}</div>
+      <div class="section-head"><div class="section-title"><span class="section-number">08</span><h2>Limitations</h2></div></div>
+      <div class="boundary">${renderText(output.limitations || 'This response is based only on active knowledge. It does not replace quality assessment, legal judgment, or formal business decisions.')}</div>
     </section>
 
-    <footer class="footer">本简报由全局 RAG 中枢根据本次查询生成。证据、数据时间和字段来源以导出时的响应为准；如状态为“证据兜底”或“无本域证据”，请结合相应提示理解。</footer>
+    <footer class="footer">This brief was generated by the Global RAG Hub. Evidence, data times, and field sources reflect the response at export time. Review the relevant notices when the status is "Evidence-based fallback" or "No domain-specific evidence."</footer>
   </main>
 </body>
 </html>`

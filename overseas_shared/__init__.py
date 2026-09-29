@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
-"""overseas_shared —— 三端共享数据契约。
-C 端 / KOL 端 / B 端 均 import 此包,保证枚举、字段、事件格式一致。
+"""Shared data contracts for the customer, creator, and B2B modules.
+
+All modules import this package to keep enums, fields, and event formats
+consistent across the application.
 """
 from overseas_shared.enums import (
     Country,
@@ -10,11 +12,11 @@ from overseas_shared.enums import (
     MaterialStatus,
     ClientType,
     SourceLevel,
-    RegulationStatus,    # 新增
-    ProjectStage,        # 新增
-    ProjectLevel,        # 新增
-    SourceType,          # 新增
-    AccessMethod,        # 新增
+    RegulationStatus,
+    ProjectStage,
+    ProjectLevel,
+    SourceType,
+    AccessMethod,
 )
 from overseas_shared.schemas import (
     MaterialItem,
@@ -30,7 +32,7 @@ from overseas_shared.events import (
 )
 
 __all__ = [
-    # enums
+    # Enums
     "Country",
     "RegType",
     "ImpactLevel",
@@ -43,13 +45,13 @@ __all__ = [
     "ProjectLevel",
     "SourceType",
     "AccessMethod",
-    # schemas
+    # Schemas
     "MaterialItem",
     "Regulation",
     "Project",
     "ClientProfile",
     "DataSource",
-    # events
+    # Events
     "VOCAlertToB",
     "RegulationChange",
     "KOLRiskAlert",

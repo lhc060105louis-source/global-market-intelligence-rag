@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Creator Partnership Management Platform — European Automotive Edition</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/monitoring.css">
+</head>
+<body>
+<div class="sr-only">Data Import · Automated Discovery · Creator Search · Comparison · Shortlists · Partnership Workflow</div>
+<nav class="sidebar" aria-label="Main navigation">
+  <div class="brand"><span class="brand-mark">K</span><div><strong>Creator Partnership Management Platform</strong><small>v3.0 · European Automotive Edition</small></div></div>
+  <div class="nav-group">
+    <button class="nav-item active" data-page="dashboard">▦ <span>Dashboard</span></button>
+    <button class="nav-item" data-page="kol">◎ <span>Creators</span></button>
+    <button class="nav-item" data-page="compare">↔ <span>Creator Comparison</span><b id="comparison-count">0</b></button>
+    <button class="nav-item" data-page="shortlists">☆ <span>Shortlists</span></button>
+    <button class="nav-item" data-page="collab">⑂ <span>Partnerships</span></button>
+    <button class="nav-item" data-page="monitoring">◉ <span>Campaign Monitoring</span></button>
+    <button class="nav-item" data-page="contracts">▤ <span>Contracts</span></button>
+    <button class="nav-item" data-page="results">↗ <span>Performance Review</span></button>
+  </div>
+  <div class="sidebar-footer"><button class="nav-item" data-page="settings">⚙ <span>Settings</span></button></div>
+</nav>
+
+<div class="shell">
+  <header class="topbar">
+    <div><h1 id="page-title">Dashboard</h1><p>Chinese Automakers · United Kingdom, France, and Germany</p></div>
+    <div class="toolbar">
+      <button id="sync-status" class="sync-status" data-state="offline" type="button">Offline</button>
+      <button id="open-import" class="tb-btn">Import Excel</button>
+      <a id="export-kols" class="tb-btn" href="/exports/kols.xlsx" download>Export Excel</a>
+      <button id="open-collection" class="tb-btn teal">Find Creators</button>
+      <button id="open-add-kol" class="tb-btn teal">+ Add Creator</button>
+    </div>
+  </header>
+  <div id="status-bar" class="status-bar" role="status" hidden></div>
+
+  <main>
+    <section id="page-dashboard" class="page active">
+      <div class="metrics">
+        <article class="metric-card"><span>Total Creators</span><strong id="dash-total">0</strong><small>Current shortlist pool</small></article>
+        <article class="metric-card"><span>Grade A Creators</span><strong id="dash-agrade">0</strong><small>Commercial score ≥ 80</small></article>
+        <article class="metric-card"><span>Active Partnerships</span><strong id="dash-active">0</strong><small>CLM execution stage</small></article>
+        <article class="metric-card warning"><span>Risk Alerts</span><strong id="dash-risk">0</strong><small>High-risk creators</small></article>
+      </div>
+      <div class="dashboard-grid">
+        <article class="content-card"><div class="card-hd"><h2>Commercial Score Distribution</h2></div><div id="dash-chart" class="empty-state">Score distribution will appear after creators are added.</div></article>
+        <article class="content-card"><div class="card-hd"><h2>Risk Alerts</h2></div><div id="dash-alerts" class="empty-state">No risk alerts</div></article>
+      </div>
+      <article class="content-card"><div class="card-hd"><h2>Recently Added Creators</h2><button class="text-btn" data-go="kol">View All</button></div><div id="dash-table" class="table-wrap"></div></article>
+    </section>
+
+    <section id="page-kol" class="page">
+      <div class="page-heading"><div><h2>Creators <span id="kol-count" class="count">0</span></h2><p>Commercial and risk scores are shown separately. Missing data is marked “Not provided.”</p></div></div>
+      <form id="search-form" class="filter-bar">
+        <input name="keyword" placeholder="Search name, handle, or content category">
+        <select name="country"><option value="">All markets</option><option value="GB">United Kingdom</option><option value="FR">France</option><option value="DE">Germany</option></select>
+        <select name="platform"><option value="">All platforms</option><option>YouTube</option></select>
+        <input type="number" name="min_followers" min="0" step="1" placeholder="Minimum followers" aria-label="Minimum followers">
+        <input type="number" name="max_followers" min="0" step="1" placeholder="Maximum followers" aria-label="Maximum followers">
+        <input type="number" name="min_commercial_score" min="0" max="100" step="1" placeholder="Minimum commercial score" aria-label="Minimum commercial score">
+        <button class="tb-btn" type="submit">Filter</button>
+      </form>
+      <div class="bulk-toolbar"><label><input id="select-all-kols" type="checkbox"> Select all</label><span>Selected <strong id="selected-kol-count">0</strong> creators (up to 4)</span></div>
+      <div id="kol-results" class="kol-grid"></div><p id="kol-empty" class="empty-state" hidden>No creators found.</p>
+    </section>
+
+    <section id="page-compare" class="page">
+      <div class="page-heading"><div><h2>Creator Comparison</h2><p>Select up to four creators to compare side by side.</p></div><button id="run-comparison" class="tb-btn teal">Compare</button></div>
+      <div id="comparison-selection" class="selection-list"></div><div id="comparison-results" class="compare-grid"></div><p id="comparison-empty" class="empty-state">No comparison generated yet.</p>
+    </section>
+
+    <section id="page-shortlists" class="page">
+      <div class="page-heading"><div><h2>Shortlists</h2><p>Manage filtered creators by campaign.</p></div></div>
+      <form id="shortlist-form" class="filter-bar">
+        <input name="name" placeholder="Campaign or shortlist name" required>
+        <select name="target_country"><option value="">All markets</option><option value="UK">United Kingdom</option><option value="DE">Germany</option></select>
+        <button class="tb-btn teal" type="submit">Create Shortlist</button>
+      </form>
+      <div id="shortlists-list" class="content-card"></div>
+    </section>
+
+    <section id="page-collab" class="page">
+      <div class="page-heading"><div><h2>Partnerships</h2><p>Track creator partnerships by CLM stage.</p></div><button class="tb-btn teal" data-go="monitoring" type="button">Open Campaign Monitoring →</button></div>
+      <div id="stage-bar" class="stage-bar"></div><div id="collab-list" class="content-card"></div>
+    </section>
+
+    <section id="page-monitoring" class="page">
+      <div class="page-heading">
+        <div>
+          <h2>Campaign Monitoring</h2>
+          <p>Track content schedules, reviews, and risk handling.</p>
+        </div>
+      </div>
+      <div class="monitor-tabs" role="tablist" aria-label="Campaign monitoring pages">
+        <button class="monitor-tab active" data-monitor-view="overview" type="button">Overview</button>
+        <button class="monitor-tab" data-monitor-view="tasks" type="button">Content Tasks</button>
+        <button class="monitor-tab" data-monitor-view="review" type="button">Review Center</button>
+        <button class="monitor-tab" data-monitor-view="risk" type="button">Risk Events</button>
+        <button class="monitor-tab" data-monitor-view="crisis" type="button">Major Incidents</button>
+      </div>
+      <section id="monitoring-overview" class="monitor-panel active"></section>
+      <section id="monitoring-tasks" class="monitor-panel">
+        <form id="monitor-task-filter" class="filter-bar monitor-filter">
+          <input name="q" placeholder="Search tasks, creators, or titles">
+          <select name="stage"><option value="">All stages</option><option>Brief Unconfirmed</option><option>In Production</option><option>Under Review</option><option>Changes Requested</option><option>Pending Publication</option><option>Published / Monitoring</option></select>
+          <select id="monitor-platform-filter" name="platform"><option value="">All platforms</option><option>YouTube</option></select>
+          <select name="risk"><option value="">All Risks</option><option>High Risk</option><option>Medium Risk</option><option>Low Risk</option><option>No Risk</option></select>
+          <button class="tb-btn" type="submit">Filter</button><button id="monitor-filter-reset" class="tb-btn" type="button">Reset</button>
+        </form>
+        <div class="page-heading">
+          <div>
+            <h2>Content Tasks <span id="monitor-task-count" class="count">24</span></h2>
+            <p>View the current execution status for each task.</p>
+          </div>
+        </div>
+        <div id="monitor-task-table" class="content-card table-wrap"><div class="empty-state">Loading tasks…</div></div>
+      </section>
+      <section id="monitoring-review" class="monitor-panel">
+        <div class="empty-state">Select a task to review its details.</div>
+      </section>
+      <section id="monitoring-risk" class="monitor-panel">
+        <div class="empty-state">Select a risk event to view its status.</div>
+      </section>
+      <section id="monitoring-crisis" class="monitor-panel">
+        <div class="empty-state">Loading major incidents…</div>
+      </section>
+    </section>
+
+    <section id="page-contracts" class="page"><div class="page-heading"><div><h2>Contracts</h2><p>Track contract amounts, currencies, and status.</p></div></div><div id="contracts-list" class="content-card"></div></section>
+    <section id="page-results" class="page">
+  <div class="page-heading">
+    <div>
+      <h2>Performance Review</h2>
+      <p>Review campaign performance and partnership recommendations.</p>
+    </div>
+  </div>
+
+  <div class="monitor-tabs" role="tablist" aria-label="Performance Review">
+    <button class="monitor-tab active" data-post-view="overview" type="button">
+      Performance Overview
+    </button>
+    <button class="monitor-tab" data-post-view="kol" type="button">
+      Creator Details
+    </button>
+    <button class="monitor-tab" data-post-view="sentiment" type="button">
+      Content Sentiment
+    </button>
+    <button class="monitor-tab" data-post-view="review" type="button">
+      Partnership Review
+    </button>
+  </div>
+
+  <section id="post-overview" class="post-panel monitor-panel active">
+    <div class="empty-state">Loading performance data…</div>
+  </section>
+
+  <section id="post-kol" class="post-panel monitor-panel">
+    <div class="empty-state">Select a creator from the performance ranking.</div>
+  </section>
+
+  <section id="post-sentiment" class="post-panel monitor-panel">
+    <div class="empty-state">Select content to view audience feedback.</div>
+  </section>
+
+  <section id="post-review" class="post-panel monitor-panel">
+    <div class="empty-state">Loading review data…</div>
+  </section>
+</section>
+    <section id="page-settings" class="page">
+      <article class="content-card settings-card"><h2>Data Collection Settings</h2><form id="settings-form"><label>YouTube API Key<input id="settings-apikey" type="password" autocomplete="off"></label><button class="tb-btn teal">Save Settings</button><button id="delete-settings" class="tb-btn" type="button">Clear Key</button><span id="settings-key-status"></span></form></article>
+      <article class="content-card settings-card"><h2>Team Cloud Sharing</h2><form id="supabase-settings-form"><label>Supabase URL<input id="supabase-url" type="url" placeholder="https://project.supabase.co" required></label><label>Anon Key<input id="supabase-anon-key" type="password" autocomplete="off" required></label><label>User Token<input id="supabase-access-token" type="password" autocomplete="off" required></label><button class="tb-btn teal" type="submit">Save & Enable</button><span id="supabase-status"></span></form><button id="sync-now" class="tb-btn" type="button">Sync Now</button></article>
+    </section>
+  </main>
+</div>
+
+<div id="add-kol-overlay" class="overlay" aria-hidden="true"><div class="modal"><div class="modal-hd"><h3 id="kol-form-title">Add Creator</h3><button class="close-overlay" type="button">×</button></div><form id="kol-form"><div class="modal-body">
+  <input id="kol-id" type="hidden">
+  <div class="yt-import-box"><div class="yt-import-title">Import channel details from YouTube</div><p class="yt-config-note">YouTube credentials are managed in Settings. Keys are not shown or stored here.</p><div class="api-key-row"><input id="yt-url-input" placeholder="Channel URL or ID"><button id="fetch-youtube" class="tb-btn youtube" type="button">Fetch Data</button></div><div id="yt-status" class="yt-status"></div><div id="yt-preview-card" class="yt-preview" hidden>Channel data loaded</div></div>
+  <div class="m-tabs"><button class="m-tab active" type="button" data-modal-tab="0">Audience & Content</button><button class="m-tab" type="button" data-modal-tab="1">Commercial Terms</button><button class="m-tab" type="button" data-modal-tab="2">Risk Assessment</button></div>
+  <div id="m-tab-0" class="m-tab-panel"><div class="sec-divider">Basic Information</div><div class="form-grid"><label>Creator / Channel Name<input id="f-name" name="name"></label><label>Handle<input id="f-handle" name="handle" placeholder="@handle"></label><input id="f-account-id" name="platform_account_id" type="hidden"><label>Platform<select id="f-platform" name="platform"><option>YouTube</option></select></label><label>Primary Market<select id="f-country" name="country"><option value="GB">United Kingdom</option><option value="FR">France</option><option value="DE">Germany</option></select></label><label>Language<input id="f-language" name="language" placeholder="en / fr / de"></label><label>Followers<input id="f-followers" name="followers" type="number" min="0"></label><label class="wide">Profile URL<input id="f-profile" name="profile_url" type="url"></label></div><div class="sec-divider">Audience Fit</div><div class="form-grid"><label>Audience share in target markets (%)<input id="f-audience" name="geo" type="number" min="0" max="100"></label><label>Language capability<select name="lang"><option value="3">Trilingual</option><option value="2">Bilingual</option><option value="1">Monolingual</option></select></label><label>Automotive / EV audience (%)<input name="autoInterest" type="number" min="0" max="100"></label><label>Audience aged 25–55 (%)<input name="age" type="number" min="0" max="100"></label><label>Income Level<select name="income"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low / unknown</option></select></label></div><div class="sec-divider">Content Expertise & Audience Voice</div><div class="form-grid"><label>Automotive content focus (%)<input name="focus" type="number" min="0" max="100"></label><label>Review Depth<select name="depth"><option value="deep">In-depth</option><option value="mid">Moderate</option><option value="surface">Surface-level</option></select></label><label>Subject-Matter Credibility<select name="credibility"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Average Engagement Rate (ERR, %)<input id="f-engagement" name="err" type="number" min="0" step="0.01"></label><label>Completion Rate (%)<input name="completion" type="number" min="0" max="100"></label><label>Comment Quality<select name="commentQuality"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Share / Save Rate (%)<input name="shareSave" type="number" min="0"></label><label>Audience feedback depth<select name="vocDepth"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Negative Feedback Handling<select name="vocNeg"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Feedback History<select name="vocHistory"><option value="yes">Sufficient</option><option value="sometimes">Occasional</option><option value="no">None</option></select></label><label class="wide">Content Categories<input id="f-categories" name="content_categories"></label></div></div>
+  <div id="m-tab-1" class="m-tab-panel" hidden><div class="sec-divider">Commercial Efficiency</div><div class="form-grid"><label>CPM quote (€)<input name="cpm" type="number" min="0"></label><label>Industry Benchmark CPM (€)<input name="benchCpm" type="number" min="0" value="20"></label><label>Content Reuse Rights<select name="reuse"><option value="full">Full reuse rights</option><option value="limited">Limited reuse</option><option value="none">Not allowed</option></select></label><label>Exclusivity<select name="exclusive"><option value="none">None</option><option value="soft">Limited exclusivity</option><option value="hard">Strict exclusivity</option></select></label></div><div class="sec-divider">Brand Fit & Partnership Feasibility</div><div class="form-grid"><label>Brand Tone<select name="brandTone"><option value="match">Aligned</option><option value="neutral">Neutral</option><option value="conflict">Conflict</option></select></label><label>Historical brand tone<select name="histTone"><option value="match">Aligned</option><option value="neutral">Neutral</option><option value="conflict">Conflict</option></select></label><label>Style Consistency<select name="styleConsist"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Historical Delivery Rate (%)<input name="fulfill" type="number" min="0" max="100"></label><label>Brief Collaboration<select name="briefCoop"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Data Readiness<select name="dataReady"><option value="active">Proactive</option><option value="passive">Reactive</option><option value="none">None</option></select></label><label>Contract Flexibility<select name="contractFlex"><option value="flexible">Flexible</option><option value="normal">Standard</option><option value="rigid">Rigid</option></select></label></div></div>
+  <div id="m-tab-2" class="m-tab-panel" hidden><div class="risk-note">Higher scores indicate greater risk. High-risk items should be reviewed by Legal.</div><div class="form-grid"><label>Past Controversies<select name="incident"><option value="none">None</option><option value="minor">Minor</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label><label>Misleading Advertising<select name="falsead"><option value="none">None</option><option value="minor">Minor</option><option value="serious">Serious</option></select></label><label>Sentiment Reach<select name="sentiment"><option value="none">None</option><option value="local">Limited</option><option value="wide">Widespread</option></select></label><label>Ad Disclosure<select name="adlabel"><option value="always">Consistent</option><option value="sometimes">Occasionally missing</option><option value="never">Never</option></select></label><label>Regulatory Penalties<select name="penalty"><option value="none">None</option><option value="warning">Warning</option><option value="penalty">Penalty</option></select></label><label>Compliance Awareness<select name="compliance"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Competitor Relationship<select name="competitor"><option value="none">None</option><option value="nonexclusive">Non-exclusive</option><option value="exclusive">Exclusive</option><option value="ambassador">Ambassador</option></select></label><label>Competitor content (%)<input name="compcontentpct" type="number" min="0" max="100"></label><label>Competitor Tier<select name="complevel"><option value="none">None</option><option value="indirect">Indirect</option><option value="direct">Direct</option></select></label><label>Fake Followers (%)<input name="fakepct" type="number" min="0" max="100"></label><label>Unusual Growth<select name="spikegrowth"><option value="none">None</option><option value="once">Once</option><option value="multiple">Multiple times</option></select></label><label>Template Comments<select name="templatecomment"><option value="normal">Healthy</option><option value="some">Some</option><option value="heavy">Serious</option></select></label><label>GDPR<select name="gdpr"><option value="none">None</option><option value="minor">Minor</option><option value="serious">Serious</option></select></label><label>Data Use<select name="datause"><option value="compliant">Compliant</option><option value="unclear">Unclear</option><option value="violation">Violation</option></select></label><label>Underage Audience (%)<input name="minorpct" type="number" min="0" max="100"></label><label>Age Suitability<select name="agesuit"><option value="suitable">Suitable</option><option value="partial">Some</option><option value="unsuitable">Unsuitable</option></select></label><label>Exaggerated Claims<select name="exaggerate"><option value="none">None</option><option value="minor">Minor</option><option value="serious">Serious</option></select></label><label>ADAS Claims<select name="adas"><option value="none">None</option><option value="cautious">Cautious</option><option value="exaggerated">Exaggerated</option></select></label><label>Technical Accuracy<select name="techaccuracy"><option value="high">High</option><option value="mid">Medium</option><option value="low">Low</option></select></label><label>Delays / Content Removal<select name="latedelete"><option value="none">None</option><option value="occasional">Occasional</option><option value="frequent">Frequent</option></select></label><label>Brief Refusal<select name="briefreject"><option value="cooperative">Cooperative</option><option value="friction">Some friction</option><option value="refuse">Refusal</option></select></label></div></div>
+  <div id="score-preview" class="score-preview"><strong>Score Preview</strong><span>Commercial and risk scores are calculated by the server.</span></div>
+</div><div class="modal-footer"><button class="tb-btn close-overlay" type="button">Cancel</button><button class="tb-btn teal" type="submit">Save Creator</button></div></form></div></div>
+
+<div id="auto-collection-overlay" class="overlay" aria-hidden="true"><div class="modal small"><div class="modal-hd"><h3>Find Creators</h3><button class="close-overlay" type="button">×</button></div><form id="collection-form"><div class="modal-body"><div class="form-grid"><label class="wide">Keywords<input name="keywords" placeholder="BYD, Chinese EV, electric car review"></label><label>Platform<select name="platforms" multiple><option value="youtube" selected>YouTube</option><option value="reddit" selected>Reddit</option><option value="tiktok" selected>TikTok</option></select></label><label>Language<select name="languages" multiple><option value="en" selected>English</option><option value="fr" selected>French</option><option value="de" selected>German</option></select></label><label>Markets<select name="markets" multiple><option value="GB" selected>United Kingdom</option><option value="FR" selected>France</option><option value="DE" selected>Germany</option></select></label><label>Maximum results<input name="limit_per_platform" type="number" min="1" max="100" value="30"></label></div><section id="collection-status" class="collection-status" aria-live="polite"></section><ul id="collection-logs" class="collection-logs"></ul><p id="collection-error" class="collection-error" hidden></p></div><div class="modal-footer"><button id="view-collected-kols" class="tb-btn" type="button" hidden>View Creators</button><button id="retry-collection" class="tb-btn" type="button" hidden>Retry</button><button class="tb-btn close-overlay" type="button">Cancel</button><button id="submit-collection" class="tb-btn teal" type="submit">Start Collection</button></div></form></div></div>
+
+<div id="import-overlay" class="overlay" aria-hidden="true"><div class="modal small"><div class="modal-hd"><h3>Import Excel</h3><button class="close-overlay" type="button">×</button></div><form id="import-form"><div class="modal-body"><input id="import-file" type="file" accept=".csv,.xlsx" required><div id="import-summary"></div><div id="import-errors" hidden><table><tbody id="import-error-rows"></tbody></table></div></div><div class="modal-footer"><button class="tb-btn teal">Upload & Analyze</button></div></form></div></div>
+
+<dialog id="detail-dialog"><div class="modal-hd"><h3 id="detail-title">Creator Details</h3><button id="close-detail">×</button></div><div id="detail-content"></div><form id="score-form"><select id="score-type" name="score_type"><option value="commercial">Commercial</option><option value="risk">Risk</option></select><select id="score-dimension" name="dimension"></select><input name="manual_score" type="number" min="0" max="100"><input name="evidence"><input name="source"><button>Save Manual Score</button></form><div id="score-records"></div></dialog>
+
+<script src="/static/assessment.js"></script>
+<script src="/static/collection.js"></script>
+<script src="/static/comparison.js"></script>
+<script src="/static/workflow.js"></script>
+<script src="/static/settings.js"></script>
+<script src="/static/shortlists.js"></script>
+<script src="/static/contracts.js"></script>
+<script src="/static/reviews.js"></script>
+<script src="/static/sync.js"></script>
+<script src="/static/monitoring.js"></script>
+<script src="/static/post_campaign.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -23,7 +23,7 @@ def ready_detail():
         "profile_url": "https://example.com/creator",
         "platform": "YouTube",
         "country": "GB",
-        "content_categories": "汽车, EV / 试驾",
+        "content_categories": "Automotive, EV / test drives",
         "score_summary": {
             "commercial_score": 85.0,
             "commercial_status": "ready",
@@ -35,7 +35,7 @@ def ready_detail():
             {"score_type": "commercial", "dimension": "audience_fit", "final_score": 90},
             {"score_type": "risk", "dimension": "fake_traffic", "final_score": 10},
         ],
-        "flags": ["广告披露记录完整"],
+        "flags": ["Ad disclosure is complete"],
         "assessment_updated_at": "2026-08-18T10:00:00",
         "workflow_updated_at": "2026-08-18T11:00:00+00:00",
     }
@@ -54,9 +54,9 @@ def test_build_assessment_envelope_uses_formal_contract_and_shared_country():
     assert body["is_mock"] is True
     assert body["payload"]["kol_id"] == "kol-sync-7"
     assert body["payload"]["audience_regions"] == ["UK"]
-    assert body["payload"]["content_categories"] == ["汽车", "EV", "试驾"]
+    assert body["payload"]["content_categories"] == ["Automotive", "EV", "test drives"]
     assert body["payload"]["commercial_dimensions"] == {"audience_fit": 90.0}
-    assert body["payload"]["cooperation_conclusion"] == "强烈推荐合作，优先推进签约"
+    assert body["payload"]["cooperation_conclusion"] == "Strong partnership candidate; prioritize contract signing."
 
 
 def test_incomplete_assessment_is_not_exported():
@@ -67,8 +67,8 @@ def test_incomplete_assessment_is_not_exported():
 
 
 def test_recommendation_reuses_kol_ui_matrix():
-    assert cooperation_conclusion(72, 45) == "可考虑合作，关注内容专业度提升"
-    assert cooperation_conclusion(60, 80) == "不建议合作，直接排除"
+    assert cooperation_conclusion(72, 45) == "Partnership may be considered; focus on improving content expertise."
+    assert cooperation_conclusion(60, 80) == "Partnership not recommended; exclude from consideration."
 
 
 def test_dry_run_reads_details_without_posting():

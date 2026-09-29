@@ -43,7 +43,7 @@ def _indexed_record(client, *, brand="Tesla", model="Model Y"):
         return db.scalar(select(RagDocumentMapping).where(RagDocumentMapping.record_id == response.json()["record_id"]))
 
 
-def _indexed_business_record(client, *, title="General Safety Regulation 通用安全法规"):
+def _indexed_business_record(client, *, title="General Safety Regulation General Safety Regulation"):
     payload = business_payload()
     payload.update(title=title, published_summary=title, tags=[title])
     response = client.post(
@@ -56,8 +56,8 @@ def _indexed_business_record(client, *, title="General Safety Regulation 通用�
         return db.scalar(select(RagDocumentMapping).where(RagDocumentMapping.record_id == response.json()["record_id"]))
 
 
-def test_plan_keeps_original_chinese_question_and_maps_entities_and_fields():
-    question = "特斯拉 Model-Y 在欧盟的通用安全法规风险状态和走势如何？"
+def test_plan_keeps_original_english_question_and_maps_entities_and_fields():
+    question = "What are the risk status and trend for the General Safety Regulation in the European Union for Tesla Model-Y?"
     plan = plan_query(question, targets=["c_current"])
     assert plan.original_question == question
     assert plan.normalized_entities == {
@@ -69,23 +69,23 @@ def test_plan_keeps_original_chinese_question_and_maps_entities_and_fields():
 
 
 def test_c_side_vehicle_aliases_normalize_legacy_spellings_without_topic_taxonomy():
-    plan = plan_query("VW ID_4 在德国的消费者风险状态如何？", targets=["c_current"])
+    plan = plan_query("What is the consumer risk status for the VW ID_4 in Germany?", targets=["c_current"])
     assert plan.normalized_entities["brand"] == "Volkswagen"
     assert plan.normalized_entities["vehicle_model"] == "ID.4"
     assert plan.normalized_entities["region"] == "Germany"
-    topic_plan = plan_query("充电慢和冬季续航下降的消费者反馈", targets=["c_current"])
+    topic_plan = plan_query("Consumer feedback about slow charging and reduced winter range", targets=["c_current"])
     assert "regulation_topic" not in topic_plan.normalized_entities
     assert topic_plan.requested_fields == frozenset()
 
 
 def test_b_side_regulation_registry_aliases_are_available_on_demand():
     cases = {
-        "AFIR 替代燃料基础设施法规的要求是什么？": "AFIR",
-        "UNECE R156 软件更新管理要求是什么？": "UNECE R156",
-        "CBAM 碳边境调节机制对汽车材料有什么影响？": "CBAM",
-        "欧盟二氧化碳排放标准有哪些要求？": "EU CO2 Standards",
-        "Foreign Subsidies Regulation 外国补贴条例是什么？": "Foreign Subsidies Regulation",
-        "Euro NCAP 2026 安全评估协议是什么？": "Euro NCAP",
+        "What are the requirements of the Alternative Fuels Infrastructure Regulation (AFIR)?": "AFIR",
+        "What are the software update requirements under UNECE R156?": "UNECE R156",
+        "How does the Carbon Border Adjustment Mechanism (CBAM) affect automotive materials?": "CBAM",
+        "What are the EU CO2 emission standards?": "EU CO2 Standards",
+        "What is the Foreign Subsidies Regulation?": "Foreign Subsidies Regulation",
+        "What is the Euro NCAP 2026 safety assessment protocol?": "Euro NCAP",
     }
     for question, expected in cases.items():
         plan = plan_query(question, targets=["b_business"])
@@ -93,7 +93,7 @@ def test_b_side_regulation_registry_aliases_are_available_on_demand():
 
 
 def test_entity_canonicalization_compares_question_aliases_to_payload_values():
-    assert canonicalize_entity_value("brand", "特斯拉") == "Tesla"
+    assert canonicalize_entity_value("brand", "Tesla") == "Tesla"
     assert canonicalize_entity_value("brand", "Tesla") == "Tesla"
     assert canonicalize_entity_value("vehicle_model", "Model Y") == "Model Y"
     assert canonicalize_entity_value("vehicle_model", "Model-Y") == "Model Y"
@@ -101,12 +101,12 @@ def test_entity_canonicalization_compares_question_aliases_to_payload_values():
 
 
 def test_field_aliases_include_required_consumer_fields():
-    plan = plan_query("风险状态、走势、主要投诉和品牌口碑是什么？")
+    plan = plan_query("What are the risk status, trend, key complaints, and brand reputation?")
     assert {"risk_status", "trend_direction", "key_complaints", "brand_attitude"}.issubset(plan.requested_fields)
 
 
 def test_high_confidence_subject_mismatch_filters_but_medium_only_downranks():
-    plan = plan_query("Tesla Model Y 的风险状态", targets=["c_current"])
+    plan = plan_query("Tesla Model Y risk status", targets=["c_current"])
     high_score, high_filtered, _ = score_candidate(plan, _record(brand="Hyundai", model="Model Y"), 0.8)
     assert high_filtered is True
     medium_plan = replace(plan, entity_confidence={**plan.entity_confidence, "brand": 0.70})
@@ -116,7 +116,7 @@ def test_high_confidence_subject_mismatch_filters_but_medium_only_downranks():
 
 
 def test_explicit_general_safety_regulation_does_not_accept_ai_act_evidence():
-    plan = plan_query("通用安全法规的影响", targets=["b_business"])
+    plan = plan_query("Impact of the General Safety Regulation", targets=["b_business"])
     _, filtered, details = score_candidate(plan, _record(topic="AI Act"), 0.8)
     assert details["entity_matches"]["regulation_topic"] is False
     assert filtered is True
@@ -127,7 +127,7 @@ def test_explicit_general_safety_regulation_does_not_accept_ai_act_evidence():
 
 def test_cross_domain_entities_only_filter_dimensions_present_in_each_record():
     plan = plan_query(
-        "Tesla Model Y 在欧盟的通用安全法规对消费者和商业有什么影响？",
+        "How does the General Safety Regulation in the European Union affect consumers and business for Tesla Model Y?",
         targets=["c_current", "b_business"],
     )
     _, consumer_filtered, consumer_details = score_candidate(
@@ -149,7 +149,7 @@ def test_cross_domain_entities_only_filter_dimensions_present_in_each_record():
 
 
 def test_cross_domain_regulation_mismatch_still_filters_business_record():
-    plan = plan_query("Tesla Model Y 在欧盟的通用安全法规影响", targets=["c_current", "b_business"])
+    plan = plan_query("General Safety Regulation impact in the European Union for Tesla Model Y", targets=["c_current", "b_business"])
     _, filtered, details = score_candidate(
         plan,
         _record(brand=None, model=None, topic="AI Act", target="b_business"),
@@ -175,11 +175,11 @@ def test_multiple_chunks_from_one_parent_produce_one_final_evidence(client):
         {"id": "chunk-2", "document_id": mapping.external_document_id, "similarity": 0.92},
     ]
     with client.app.state.session_factory() as db:
-        evidence = evaluate_evidence(db, hits, ["c_current"], plan=plan_query("Tesla Model Y 的风险状态", targets=["c_current"])).evidence
+        evidence = evaluate_evidence(db, hits, ["c_current"], plan=plan_query("Tesla Model Y risk status", targets=["c_current"])).evidence
     assert len(evidence) == 1
 
 
-def test_primary_search_uses_original_chinese_question_in_shadow_mode(client, monkeypatch):
+def test_primary_search_uses_original_question_in_shadow_mode(client, monkeypatch):
     mapping = _indexed_record(client)
     calls = []
 
@@ -189,8 +189,8 @@ def test_primary_search_uses_original_chinese_question_in_shadow_mode(client, mo
             return [{"document_id": mapping.external_document_id, "similarity": 0.91}]
 
     client.app.state.adapter = Adapter()
-    monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "依据证据回答。")
-    question = "特斯拉 Model Y 的风险状态如何？"
+    monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "Answer based on evidence.")
+    question = "What is the risk status for Tesla Model Y?"
     response = client.post("/api/v1/query", headers=AUTH, json={"query": question})
     assert response.status_code == 200
     assert [(call["query"], call["top_k"], call["similarity"]) for call in calls] == [(question, 5, 0.6)]
@@ -201,13 +201,13 @@ def test_shadow_keeps_legacy_evidence_even_when_planner_would_filter(client):
     hits = [{"document_id": mapping.external_document_id, "similarity": 0.91}]
     with client.app.state.session_factory() as db:
         legacy = filter_effective_evidence(db, hits, ["c_current"])
-        planned = evaluate_evidence(db, hits, ["c_current"], plan=plan_query("Tesla Model Y 的风险状态", targets=["c_current"]))
+        planned = evaluate_evidence(db, hits, ["c_current"], plan=plan_query("Tesla Model Y risk status", targets=["c_current"]))
     assert len(legacy) == 1
     assert planned.evidence == []
 
 
 def test_shadow_mode_keeps_the_same_visible_output_as_off(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "依据证据回答。")
+    monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "Answer based on evidence.")
     outputs = []
     for mode in ("off", "shadow"):
         settings = Settings(
@@ -223,13 +223,13 @@ def test_shadow_mode_keeps_the_same_visible_output_as_off(tmp_path, monkeypatch)
                     return [{"document_id": mapping.external_document_id, "similarity": 0.91}]
 
             client.app.state.adapter = Adapter()
-            response = client.post("/api/v1/query", headers=AUTH, json={"query": "Tesla Model Y 的风险状态如何？"})
+            response = client.post("/api/v1/query", headers=AUTH, json={"query": "What is the risk status for Tesla Model Y?"})
             assert response.status_code == 200
             body = response.json()
             visible = {key: value for key, value in body.items() if key != "request_id"}
-            visible["output"]["简化证据"] = [
+            visible["output"]["evidence"] = [
                 {key: value for key, value in source.items() if key != "record_id"}
-                for source in visible["output"]["简化证据"]
+                for source in visible["output"]["evidence"]
             ]
             outputs.append(visible)
     assert outputs[0] == outputs[1]
@@ -246,8 +246,8 @@ def test_active_normal_hit_does_not_fallback_and_never_replaces_primary_query(tm
                 return [{"document_id": mapping.external_document_id, "similarity": 0.91}]
 
         client.app.state.adapter = Adapter()
-        monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "依据证据回答。")
-        question = "特斯拉 Model Y 的风险状态如何？"
+        monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "Answer based on evidence.")
+        question = "What is the risk status for Tesla Model Y?"
         assert client.post("/api/v1/query", headers=AUTH, json={"query": question}).status_code == 200
         assert [call["query"] for call in calls] == [question]
 
@@ -262,7 +262,7 @@ def test_active_fallback_runs_at_most_once_with_deterministic_auxiliary_query(tm
                 return []
 
         client.app.state.adapter = Adapter()
-        question = "特斯拉 Model Y 的风险状态如何？"
+        question = "What is the risk status for Tesla Model Y?"
         response = client.post("/api/v1/query", headers=AUTH, json={"query": question})
         assert response.status_code == 200
         assert [call["query"] for call in calls] == [question, "Tesla Model Y risk status"]
@@ -279,7 +279,7 @@ def test_auxiliary_target_is_selected_once_for_a_cross_domain_miss(tmp_path):
                 return []
 
         client.app.state.adapter = Adapter()
-        question = "Tesla Model Y 的风险状态如何？"
+        question = "What is the risk status for Tesla Model Y?"
         response = client.post(
             "/api/v1/query",
             headers=AUTH,
@@ -295,7 +295,7 @@ def test_auxiliary_target_is_selected_once_for_a_cross_domain_miss(tmp_path):
 
 def test_auxiliary_target_prefers_the_explicit_domain_without_evidence():
     plan = plan_query(
-        "Tesla Model Y 的消费者和商业影响？",
+        "What are the consumer and business impacts for Tesla Model Y?",
         targets=["c_current", "b_business", "kol"],
     )
     assert select_auxiliary_target(
@@ -314,7 +314,7 @@ def test_active_missing_c_subject_returns_clarification_without_other_brand_evid
                 return [{"document_id": mapping.external_document_id, "similarity": 0.95}]
 
         client.app.state.adapter = Adapter()
-        response = client.post("/api/v1/query", headers=AUTH, json={"query": "这款车最近有什么消费者风险？"})
+        response = client.post("/api/v1/query", headers=AUTH, json={"query": "What recent consumer risks affect this vehicle?"})
         assert response.status_code == 200
         assert response.json()["evidence_count"] == 0
         assert response.json()["clarification"]["required"] == ["brand", "vehicle_model"]
@@ -332,18 +332,18 @@ def test_active_global_query_keeps_c_subject_and_b_topic_evidence(tmp_path, monk
                 return [{"document_id": business_mapping.external_document_id, "similarity": 0.8}]
 
         client.app.state.adapter = Adapter()
-        monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "依据证据回答。")
+        monkeypatch.setattr("app.main._ollama_evidence_answer", lambda *args: "Answer based on evidence.")
         response = client.post(
             "/api/v1/query",
             headers=AUTH,
             json={
-                "query": "Tesla Model Y 在欧盟的通用安全法规对消费者和商业有什么影响？",
+                "query": "How does the General Safety Regulation in the European Union affect consumers and business for Tesla Model Y?",
                 "domains": ["c", "b"],
             },
         )
         assert response.status_code == 200
         assert response.json()["evidence_count"] == 2
-        assert {item["target_knowledge_base"] for item in response.json()["output"]["简化证据"]} == {"c_current", "b_business"}
+        assert {item["target_knowledge_base"] for item in response.json()["output"]["evidence"]} == {"c_current", "b_business"}
 
 
 def test_all_domains_without_kol_evidence_does_not_retry_kol(tmp_path):
@@ -366,18 +366,18 @@ def test_all_domains_without_kol_evidence_does_not_retry_kol(tmp_path):
             "/api/v1/query",
             headers=AUTH,
             json={
-                "query": "Tesla Model Y 的消费者和商业影响？",
+                "query": "What are the consumer and business impacts for Tesla Model Y?",
                 "domains": ["c", "b", "kol"],
             },
         )
         assert response.status_code == 200
         assert response.json()["evidence_count"] == 2
         assert [call["target"] for call in calls] == ["c_current", "b_business", "kol"]
-        assert [call["query"] for call in calls] == ["Tesla Model Y 的消费者和商业影响？"] * 3
+        assert [call["query"] for call in calls] == ["What are the consumer and business impacts for Tesla Model Y?"] * 3
 
 
 def test_broad_structured_question_does_not_bind_to_a_brand():
-    plan = plan_query("有哪些品牌", targets=["c_current"])
+    plan = plan_query("Which brands?", targets=["c_current"])
     assert plan.broad_query is True
     assert "brand" not in plan.normalized_entities
     assert plan.clarification_required is False

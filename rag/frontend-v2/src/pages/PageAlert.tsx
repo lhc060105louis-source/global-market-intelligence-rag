@@ -41,23 +41,23 @@ interface PageAlertProps {
 }
 
 function riskTitle(risk: RiskItem): string {
-  return [risk.brand, risk.vehicle_model, risk.part, risk.region, risk.risk_type].filter(Boolean).join(' · ') || '未命名风险对象'
+  return [risk.brand, risk.vehicle_model, risk.part, risk.region, risk.risk_type].filter(Boolean).join(' · ') || 'Unnamed risk subject'
 }
 
 function riskQuestion(risk: RiskItem): string {
-  return `${riskTitle(risk)} 的 C 端风险事件，对 B 端商业项目和 KOL 合作有什么关联影响？`
+  return `How might the consumer risk event for ${riskTitle(risk)} affect business projects and creator partnerships?`
 }
 
 function semanticCardValue(result: QueryResponse, field: SemanticFieldKey, value: string | null): string {
   const info = semanticFieldInfo(result, field)
-  return info.source === 'none' ? info.notice || '本次无本域证据' : value || '未返回总结'
+  return info.source === 'none' ? info.notice || 'No evidence is available for this domain.' : value || 'No summary returned'
 }
 
 function semanticCardBadge(result: QueryResponse, field: SemanticFieldKey): { text: string; color: 'green' | 'amber' | 'gray' } {
   const source = semanticFieldInfo(result, field).source
-  if (source === 'maxkb') return { text: 'LLM总结', color: 'green' }
-  if (source === 'deterministic') return { text: '证据兜底', color: 'amber' }
-  return { text: '无本域证据', color: 'gray' }
+  if (source === 'maxkb') return { text: 'LLM summary', color: 'green' }
+  if (source === 'deterministic') return { text: 'Evidence-based fallback', color: 'amber' }
+  return { text: 'No domain-specific evidence', color: 'gray' }
 }
 
 export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProps) {
@@ -83,7 +83,7 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
         setSelectedId(current => current && result.items.some(item => item.id === current) ? current : result.items[0]?.id || '')
       })
       .catch(errorValue => {
-        if (!controller.signal.aborted) setError(errorValue instanceof Error ? errorValue.message : '预警读取失败')
+    if (!controller.signal.aborted) setError(errorValue instanceof Error ? errorValue.message : 'Failed to load alerts')
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
@@ -112,7 +112,7 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
     void ragApi.getRisk(selectedId, controller.signal)
       .then(result => setDetail(result.risk))
       .catch(errorValue => {
-        if (!controller.signal.aborted) setError(errorValue instanceof Error ? errorValue.message : '预警详情读取失败')
+    if (!controller.signal.aborted) setError(errorValue instanceof Error ? errorValue.message : 'Failed to load alert details')
       })
       .finally(() => {
         if (!controller.signal.aborted) setDetailLoading(false)
@@ -127,7 +127,7 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
   const trend = selectedEpisode?.trend_points || []
 
   const timeRange = useMemo(() => {
-    if (!trend.length) return '暂无趋势点'
+    if (!trend.length) return 'No trend data'
     return `${formatDateTime(trend[0].business_time)} — ${formatDateTime(trend[trend.length - 1].business_time)}`
   }, [trend])
 
@@ -144,16 +144,16 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
       const result = await ragApi.query(riskQuestion(selected), 'auto', controller.signal)
       if (sequence !== ragRequestSequence.current) return
       setRagResponse(result)
-      const references = result.output?.简化证据 || []
+      const references = result.output?.evidence || []
       const details = await Promise.allSettled(references.slice(0, 12).map(reference => ragApi.getRecord(reference.record_id, controller.signal)))
       if (sequence !== ragRequestSequence.current) return
       setRagEvidence(details.flatMap((item, index) => item.status === 'fulfilled'
         ? [{ record: item.value.record, score: references[index]?.score ?? null }]
         : []))
-      showToast('已读取当前 RAG 跨域关联信息')
+    showToast('Loaded related information from the RAG Hub')
     } catch (errorValue) {
       if (controller.signal.aborted || sequence !== ragRequestSequence.current) return
-      showToast(errorValue instanceof Error ? errorValue.message : '跨域查询失败')
+    showToast(errorValue instanceof Error ? errorValue.message : 'Cross-domain query failed')
     } finally {
       if (sequence === ragRequestSequence.current) {
         activeRagRequest.current = null
@@ -165,28 +165,28 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px 40px' }}>
       <Grid4>
-        <MetricCard label="活跃预警" value={loading ? '—' : activeCount} sub="仅来自C端风险事件" iconBg="#FEF2F2" iconColor="#DC2626" iconText="⚠" />
-        <MetricCard label="已恢复风险" value={loading ? '—' : recoveredCount} sub="由上游恢复事件关闭" iconBg="#ECFDF5" iconColor="#059669" iconText="✓" />
-        <MetricCard label="趋势点" value={selectedEpisode?.trend_points.length ?? '—'} sub="当前选中风险" iconBg="#EFF6FF" iconColor="#2563EB" iconText="↗" />
-        <MetricCard label="跨域查询" value={ragResponse ? ragResponse.evidence_count : '—'} sub="按需检索证据条数" iconBg="#F5F0FF" iconColor="#7C3AED" iconText="◎" />
+        <MetricCard label="Active Alerts" value={loading ? '—' : activeCount} sub="Reported by the consumer risk service" iconBg="#FEF2F2" iconColor="#DC2626" iconText="⚠" />
+        <MetricCard label="Resolved Risks" value={loading ? '—' : recoveredCount} sub="Closed by upstream recovery events" iconBg="#ECFDF5" iconColor="#059669" iconText="✓" />
+        <MetricCard label="Trend Points" value={selectedEpisode?.trend_points.length ?? '—'} sub="Selected risk" iconBg="#EFF6FF" iconColor="#2563EB" iconText="↗" />
+        <MetricCard label="Cross-domain Queries" value={ragResponse ? ragResponse.evidence_count : '—'} sub="Evidence retrieved on demand" iconBg="#F5F0FF" iconColor="#7C3AED" iconText="◎" />
       </Grid4>
 
-      {error && <WarnBox><strong>预警接口异常：</strong>{error}</WarnBox>}
-      {loading && <InfoBox>正在读取 C 端正式风险事件…</InfoBox>}
-      {!loading && risks.length === 0 && <InfoBox>当前没有达到阈值的正式风险预警；正常风险评估请在知识搜索中查看。预警由 C 端产生，RAG 页面不自行创建或修改预警。</InfoBox>}
+      {error && <WarnBox><strong>Alert API error:</strong> {error}</WarnBox>}
+      {loading && <InfoBox>Loading current consumer risk events…</InfoBox>}
+      {!loading && risks.length === 0 && <InfoBox>There are no production alerts above the threshold. View normal risk assessments in Knowledge Search. Alerts are generated by the consumer service; the RAG Hub does not create or modify them.</InfoBox>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 12 }}>
         <Card style={{ marginBottom: 0 }}>
-          <CardHead><CardTitle icon="⚠">预警列表</CardTitle><Badge text={`${risks.length}条`} color={risks.length ? 'red' : 'gray'} /></CardHead>
+        <CardHead><CardTitle icon="⚠">Alert List</CardTitle><Badge text={`${risks.length}`} color={risks.length ? 'red' : 'gray'} /></CardHead>
           <CardBody style={{ padding: 8 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {risks.map(risk => (
                 <button key={risk.id} onClick={() => setSelectedId(risk.id)}
                   style={{ display: 'flex', alignItems: 'flex-start', gap: 10, border: `0.5px solid ${selected?.id === risk.id ? '#93C5FD' : 'var(--border)'}`, background: selected?.id === risk.id ? '#F8FBFF' : '#fff', borderRadius: 8, padding: 11, textAlign: 'left', cursor: 'pointer', boxShadow: selected?.id === risk.id ? 'inset 2px 0 0 #2563EB' : 'none', width: '100%' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 5, marginBottom: 3 }}><Badge text={risk.open_episode_id ? '活跃' : '已恢复'} color={risk.open_episode_id ? 'red' : 'green'} /></div>
+                    <div style={{ display: 'flex', gap: 5, marginBottom: 3 }}><Badge text={risk.open_episode_id ? 'Active' : 'Resolved'} color={risk.open_episode_id ? 'red' : 'green'} /></div>
                     <strong style={{ fontSize: 11, color: '#111827', display: 'block', marginBottom: 3 }}>{riskTitle(risk)}</strong>
-                    <p style={{ fontSize: 9, color: '#6B7280', margin: 0 }}>{risk.risk_type || '未标注风险类型'}</p>
+                    <p style={{ fontSize: 9, color: '#6B7280', margin: 0 }}>{risk.risk_type || 'Unspecified risk type'}</p>
                   </div>
                 </button>
               ))}
@@ -199,47 +199,47 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
             <>
               <Card>
                 <CardHead>
-                  <CardTitle icon="◎">预警详情</CardTitle>
-                  <Badge text={selected.open_episode_id ? '活跃' : '已恢复'} color={selected.open_episode_id ? 'red' : 'green'} />
+                  <CardTitle icon="◎">Alert Details</CardTitle>
+                  <Badge text={selected.open_episode_id ? 'Active' : 'Resolved'} color={selected.open_episode_id ? 'red' : 'green'} />
                 </CardHead>
                 <CardBody>
                   <h3 style={{ fontSize: 14, margin: '0 0 10px', color: '#111827' }}>{riskTitle(selected)}</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
                     {[
-                      ['品牌', detail?.brand || selected.brand || '未标注'],
-                      ['车型', detail?.vehicle_model || selected.vehicle_model || '未标注'],
-                      ['地区 / 部件', [detail?.region || selected.region, detail?.part || selected.part].filter(Boolean).join(' · ') || '未标注'],
+                      ['brand', detail?.brand || selected.brand || 'Unspecified'],
+                      ['vehicle model', detail?.vehicle_model || selected.vehicle_model || 'Unspecified'],
+                      ['region / component', [detail?.region || selected.region, detail?.part || selected.part].filter(Boolean).join(' · ') || 'Unspecified'],
                     ].map(([label, value]) => (
                       <div key={label} style={{ background: '#F8FAFC', borderRadius: 6, padding: '9px 10px' }}><div style={{ fontSize: 9, color: '#6B7280', marginBottom: 3 }}>{label}</div><div style={{ fontSize: 11, fontWeight: 600 }}>{value}</div></div>
                     ))}
                   </div>
-                  {detailLoading ? <InfoBox>正在读取风险详情…</InfoBox> : (
+                  {detailLoading ? <InfoBox>Loading risk details…</InfoBox> : (
                     <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.7 }}>
-                      <div>风险类型：{detail?.risk_type || selected.risk_type || '未标注'}</div>
-                      <div>事件状态：{selectedEpisode?.status || (selected.open_episode_id ? 'open' : '已恢复')}</div>
-                      <div>趋势时间：{timeRange}</div>
-                      {selectedEpisode && <div>当前值 / 阈值：{selectedEpisode.current_value ?? '—'} / {selectedEpisode.threshold ?? '—'}</div>}
+                      <div>riskType: {detail?.risk_type || selected.risk_type || 'Unspecified'}</div>
+                      <div>Event status: {selectedEpisode?.status || (selected.open_episode_id ? 'open' : 'Resolved')}</div>
+                      <div>Trend time: {timeRange}</div>
+                      {selectedEpisode && <div>Current value / threshold: {selectedEpisode.current_value ?? '—'} / {selectedEpisode.threshold ?? '—'}</div>}
                     </div>
                   )}
                 </CardBody>
               </Card>
 
               <Card>
-                <CardHead><CardTitle icon="◎">RAG 跨域补充</CardTitle><SectionNote>按需查询，不提前处理预警</SectionNote></CardHead>
+      <CardHead><CardTitle icon="◎">RAG Context</CardTitle><SectionNote>Query on demand; alerts are not processed in advance.</SectionNote></CardHead>
                 <CardBody>
-                  {!ragResponse && !ragLoading && <InfoBox><strong>预警状态由 C 端负责。</strong>点击后才查询当前 B 端和 KOL 关联知识；RAG 不自行改变风险状态。</InfoBox>}
-                  {ragLoading && <InfoBox>正在查询当前有效知识…</InfoBox>}
+      {!ragResponse && !ragLoading && <InfoBox><strong>Alert status is managed by the consumer service.</strong> Select the button to search related business and creator knowledge. The RAG Hub does not change alert status.</InfoBox>}
+      {ragLoading && <InfoBox>Searching current knowledge…</InfoBox>}
                   {ragResponse && (
                     <>
                       <div style={{ background: '#F8FAFC', borderRadius: 6, padding: 11, fontSize: 11, lineHeight: 1.7, marginBottom: 10 }}>
-                        <strong>综合结论：</strong>{ragResponse.output.综合结论 || '未返回综合结论'}
-                        <div style={{ fontSize: 9, color: '#6B7280', marginTop: 5 }}>{semanticStatusLabel(ragResponse)} · {ragResponse.evidence_count} 条证据 · {ragResponse.query_meta.total_ms} ms</div>
+        <strong>Summary:</strong> {ragResponse.output.summary || 'No summary returned'}
+                  <div style={{ fontSize: 9, color: '#6B7280', marginTop: 5 }}>{semanticStatusLabel(ragResponse)} · {ragResponse.evidence_count} evidence items · {ragResponse.query_meta.total_ms} ms</div>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginBottom: 10 }}>
                         {[
-                          { domain: 'C' as const, field: 'consumer_signal' as const, label: '消费者信号', value: ragResponse.output.C端消费者信号 },
-                          { domain: 'B' as const, field: 'business_impact' as const, label: '商业影响', value: ragResponse.output.B端商业影响 },
-                          { domain: 'K' as const, field: 'kol_impact' as const, label: '传播与合作影响', value: ragResponse.output.KOL传播与合作影响 },
+                          { domain: 'C' as const, field: 'consumer_signal' as const, label: 'consumer signals', value: ragResponse.output.consumer_signal },
+                          { domain: 'B' as const, field: 'business_impact' as const, label: 'business impact', value: ragResponse.output.business_impact },
+                          { domain: 'K' as const, field: 'kol_impact' as const, label: 'creator reach and partnership impact', value: ragResponse.output.kol_impact },
                         ].map(item => {
                           const badge = semanticCardBadge(ragResponse, item.field)
                           return (
@@ -259,17 +259,17 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
                       )}
                     </>
                   )}
-                  <div style={{ marginTop: 10 }}><BtnPrimary onClick={() => void loadRag()} disabled={ragLoading}>{ragLoading ? '查询中…' : '查询跨域关联信息'}</BtnPrimary></div>
+      <div style={{ marginTop: 10 }}><BtnPrimary onClick={() => void loadRag()} disabled={ragLoading}>{ragLoading ? 'Querying…' : 'Search Related Information'}</BtnPrimary></div>
                 </CardBody>
               </Card>
             </>
           ) : (
-            <Card><CardBody><InfoBox>当前没有达到阈值的正式风险预警；正常风险评估请在知识搜索中查看。</InfoBox></CardBody></Card>
+      <Card><CardBody><InfoBox>There are no production alerts above the threshold. View normal risk assessments in Knowledge Search.</InfoBox></CardBody></Card>
           )}
         </div>
       </div>
 
-      <WarnBox><strong>边界：</strong>预警由 C 端风险引擎产生和恢复；本页面只读取风险和按需查询 RAG 证据，不提供修改预警状态或创建业务任务的假接口。</WarnBox>
+      <WarnBox><strong>Scope:</strong> Alerts are opened and resolved by the consumer risk engine. This page reads risk data and retrieves RAG evidence on demand; it cannot modify alert status or create business tasks.</WarnBox>
     </div>
   )
 }
