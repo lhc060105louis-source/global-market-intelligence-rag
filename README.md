@@ -1,8 +1,8 @@
 # Global Market Intelligence and Risk Analysis Platform
 
-A research-oriented software prototype for connecting customer voice analysis, cross-border B2B compliance support, and creator assessment through a shared retrieval-augmented generation (RAG) hub.
+An AI-assisted decision-support prototype that connects customer voice (VOC), cross-border B2B market and compliance intelligence, and creator (KOL) signals through a shared, local retrieval-augmented generation (RAG) hub.
 
-The project explores how structured signals from separate workflows can be collected, searched, reviewed, and presented in one local decision-support interface. It is an engineering prototype; it does not claim validated market forecasts or autonomous compliance decisions.
+Its featured workflow starts from an active consumer risk, retrieves evidence from the configured VOC, B2B, and creator knowledge bases, and checks source records and versions before drafting a cited cross-domain investigation. The draft highlights domain gaps and proposes follow-up tasks for an operator to review. Approval creates coordination records; rejection creates none. This is a research prototype: outputs require human review, and the system does not validate market impact or legal compliance.
 
 ## What the platform includes
 
