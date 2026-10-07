@@ -37,6 +37,15 @@ class Settings:
     ollama_text_model: str = "qwen2.5:7b"
 
 
+def validate_api_credentials(settings: Settings) -> None:
+    """Reject template credentials before serving any authenticated endpoint."""
+    placeholders = {"", "replace-me", "replace_with_rag_hub_api_key", "replace-with-shared-secret"}
+    if settings.api_key.strip().lower() in placeholders:
+        raise ValueError("Set a private RAG_HUB_API_KEY before starting the service; load your .env with --env-file .env.")
+    if any(key.strip().lower() in placeholders for key in settings.actor_api_keys):
+        raise ValueError("Replace the placeholder actor API key before starting the service.")
+
+
 def get_settings() -> Settings:
     kb = {key: os.getenv(key, "") for key in ("c_current", "c_history", "b_business", "kol")}
     apps = {key: os.getenv(f"MAXKB_APP_{key.upper()}", "") for key in ("c_current", "c_history", "b_business", "kol")}

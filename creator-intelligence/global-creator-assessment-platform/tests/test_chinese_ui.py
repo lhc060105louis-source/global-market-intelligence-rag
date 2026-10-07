@@ -12,7 +12,8 @@ def test_home_page_is_english(client):
     assert "Instagram" not in response.text
     assert "Reddit" in response.text
     assert "TikTok" in response.text
-    assert "KOL Search" in response.text
+    assert 'data-page="kol"' in response.text
+    assert "Creators" in response.text
     assert "Creator Comparison" in response.text
     assert "Shortlists" in response.text
 

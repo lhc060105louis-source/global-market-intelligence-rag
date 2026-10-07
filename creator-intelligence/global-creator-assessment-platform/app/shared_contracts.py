@@ -78,6 +78,7 @@ else:
 _INTERNAL_COUNTRY_ALIASES = {"GB": Country.UK, "UK": Country.UK}
 _KNOWN_BRANDS = ("BYD", "XPENG", "NIO", "MG")
 _REGULATION_HINTS = (
+    ("False Advertising", "False advertising / advertising compliance"),
     ("Misleading Advertising", "Misleading Advertising / Advertising Compliance"),
     ("Advertising Disclosure", "Advertising Disclosure Compliance"),
     ("GDPR", "GDPR / Data Privacy"),
@@ -117,8 +118,8 @@ def _brand_for(kol: Kol) -> str:
 
 
 def _regulation_hint(flags: list[str]) -> str:
-    joined = "\n".join(flags)
-    return next((hint for token, hint in _REGULATION_HINTS if token in joined), "")
+    joined = "\n".join(flags).casefold().replace("-", " ")
+    return next((hint for token, hint in _REGULATION_HINTS if token.casefold() in joined), "")
 
 
 def build_kol_risk_alert(kol: Kol) -> KOLRiskAlert | None:

@@ -1,0 +1,65 @@
+name: Repository checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: ${{ matrix.suite }} / Python 3.12
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: Hub
+            requirements: rag/service/requirements.txt
+            tests: rag/service/tests
+            workdir: .
+          - suite: VOC
+            requirements: rag/service/requirements.txt
+            tests: customer-voc/sentiment-analysis/voc-sentiment-analysis/tests
+            workdir: .
+          - suite: Creator
+            requirements: creator-intelligence/global-creator-assessment-platform/requirements.txt
+            tests: tests
+            workdir: creator-intelligence/global-creator-assessment-platform
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ${{ matrix.requirements }}
+      - run: python -m pip install -r "${{ matrix.requirements }}"
+      - run: python -m pytest "${{ matrix.tests }}" -q
+        working-directory: ${{ matrix.workdir }}
+
+  frontend:
+    name: Frontend / Node 22
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rag/frontend-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: rag/frontend-v2/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
+      - name: Creator reinvestment UI checks
+        working-directory: .
+        run: node --test creator-intelligence/global-creator-assessment-platform/tests/test_asset_management.cjs

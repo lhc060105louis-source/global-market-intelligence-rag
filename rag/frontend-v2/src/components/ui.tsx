@@ -123,16 +123,18 @@ export function BtnPrimary({ children, onClick, disabled, style }: { children: R
   )
 }
 
-export function BtnOutline({ children, onClick, active, style }: { children: ReactNode; onClick?: () => void; active?: boolean; style?: CSSProperties }) {
+export function BtnOutline({ children, onClick, active, disabled, style }: { children: ReactNode; onClick?: () => void; active?: boolean; disabled?: boolean; style?: CSSProperties }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         fontSize: 11, padding: '5px 10px', borderRadius: 5,
         border: `0.5px solid ${active ? '#93C5FD' : 'var(--border)'}`,
         background: active ? '#EFF6FF' : '#fff',
         color: active ? '#1D4ED8' : '#374151',
-        display: 'inline-flex', alignItems: 'center', gap: 5, ...style,
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1, ...style,
       }}
     >{children}</button>
   )

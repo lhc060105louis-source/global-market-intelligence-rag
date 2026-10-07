@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import httpx
 import pytest
 import time
@@ -11,7 +12,7 @@ from app.main import create_app
 from app.models import RagDocumentMapping
 from app.query import (
     Evidence, SemanticDraft, SemanticDraftError, aggregate_semantic_source, assess_semantic_draft, build_prd_output,
-    deterministic_semantic_draft, format_evidence_context, format_semantic_evidence_context, parse_semantic_draft,
+    deterministic_semantic_draft, extract_chat_error, format_evidence_context, format_semantic_evidence_context, parse_semantic_draft,
     parse_semantic_draft_partial, safe_semantic_draft, semantic_field_metadata,
     structured_semantic_draft, validate_semantic_draft,
 )
@@ -163,7 +164,7 @@ def test_semantic_context_keeps_present_domains_and_omits_verbose_nested_metrics
 
     assert "## Consumer evidence" in context
     assert "## Business evidence" in context
-    assert "## KOLcreator and partnership evidence" in context
+    assert "## Creator and partnership evidence" in context
     assert "[C1]" in context and "[B1]" in context and "[KOL1]" in context
     assert "journey_curve" not in context
 
@@ -189,7 +190,7 @@ def test_partial_parser_accepts_explicit_ui_aliases_and_action_string():
     )
     assert parsed.summary == "Cross-domain evidence indicates separate reviews are needed."
     assert parsed.consumer_signal == "Consumer feedback indicates risk status: open."
-    assert parsed.actions == ["Review consumer evidence", "Confirm the measurement methodology."]
+    assert parsed.actions == ["Review consumer evidence", "confirm the measurement methodology."]
     assert "ignored" not in parsed.present_fields
 
 
@@ -470,6 +471,53 @@ def test_no_evidence_does_not_call_semantic_model(tmp_path):
         response = client.post("/api/v1/query", headers=AUTH, json={"query": "Which brands are represented?"})
         assert response.status_code == 200
         assert response.json()["evidence_count"] == 0
+
+
+@pytest.mark.parametrize("payload, expected", [
+    ({}, ""),
+    ({"answer": "A valid semantic answer."}, ""),
+    ({"message": {"content": "A valid semantic answer."}}, ""),
+    ({"message": "The model produced a valid answer."}, ""),
+    ({"message": "Model not found"}, "Model not found"),
+    ({"data": {"error": {"message": "Model unavailable"}}}, "Model unavailable"),
+])
+def test_chat_error_detection_handles_answer_and_error_envelopes(payload, expected):
+    assert extract_chat_error(payload) == expected
+
+
+@pytest.mark.parametrize("domain, field, evidence, text", [
+    ("b_business", "business_impact", _b_evidence(), "Business policy requires review of its effective date."),
+    ("kol", "kol_impact", _kol_evidence(), "Creator evidence requires review of reach and partnership impact."),
+])
+def test_generic_review_verb_does_not_assign_consumer_domain(domain, field, evidence, text):
+    fallback, _ = deterministic_semantic_draft(evidence)
+    fields = {"summary": "The available records require a separate assessment.",
+              "consumer_signal": None, "business_impact": None, "kol_impact": None,
+              "actions": ["Review the source records."]}
+    fields[field] = text
+    parsed = parse_semantic_draft_partial(json.dumps(fields))
+    assessment = assess_semantic_draft(parsed, evidence, [domain], fallback)
+    assert assessment.draft.actions == fields["actions"]
+    assert assessment.field_sources["actions"] == "maxkb"
+    assert getattr(assessment.draft, field) == text
+    assert assessment.field_sources[field] == "maxkb"
+    validate_semantic_draft(assessment.draft, evidence, [domain])
+
+
+def test_explicit_consumer_claims_still_fall_back_with_only_creator_evidence():
+    evidence = _kol_evidence()
+    fallback, _ = deterministic_semantic_draft(evidence)
+    parsed = parse_semantic_draft_partial(
+        '{"summary":"The available creator records require assessment.",'
+        '"consumer_signal":null,"business_impact":null,'
+        '"kol_impact":"Consumer feedback establishes the current creator impact.",'
+        '"actions":["Review consumer feedback."]}'
+    )
+    assessment = assess_semantic_draft(parsed, evidence, ["kol"], fallback)
+    assert assessment.draft.kol_impact == fallback.kol_impact
+    assert assessment.field_sources["kol_impact"] == "deterministic"
+    assert assessment.draft.actions == fallback.actions
+    assert assessment.field_sources["actions"] == "deterministic"
 
 
 def test_clarification_does_not_call_semantic_model(tmp_path):
