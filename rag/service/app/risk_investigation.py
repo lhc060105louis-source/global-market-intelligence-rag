@@ -85,6 +85,9 @@ def _fallback_read_proposal(
     context: dict[str, Any], *, completed_calls: list[dict[str, Any]], evidence_ids: set[str]
 ) -> AgentToolProposal | None:
     """Use a stable, bounded read plan when the small local planner emits invalid actions."""
+    # The sixth tool slot belongs to synthesis, even if sources/domains remain unread.
+    if len(completed_calls) >= 5:
+        return None
     source_ids = [item.get("record_id") for item in context.get("sources", [])]
     completed_records = {
         item.get("arguments", {}).get("record_id")
@@ -293,6 +296,8 @@ def _execute_risk_investigation(run_id: str, *, session_factory: Any, adapter: A
                         completed_tools=[{"tool": item.get("tool"), "arguments": item.get("arguments")} for item in trace],
                         planner_feedback=planner_feedback,
                     )
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("query_deadline_exceeded")
                 try:
                     proposal = AgentToolProposal.model_validate(raw_proposal)
                 except ValueError:
@@ -346,9 +351,14 @@ def _execute_risk_investigation(run_id: str, *, session_factory: Any, adapter: A
                     target, query = args.get("target"), args.get("query")
                     if set(args) != {"target", "query"} or target not in TARGETS or not isinstance(query, str) or not 3 <= len(query.strip()) <= 500:
                         raise ValueError("invalid_tool_arguments")
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("query_deadline_exceeded")
                     hits = adapter.search(target=target, query=query.strip(), top_k=min(int(settings.maxkb_query_top_k), 10),
                                           similarity=float(settings.maxkb_query_similarity),
                                           timeout=max(0.01, min(remaining, float(settings.maxkb_timeout_seconds))))
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("query_deadline_exceeded")
                     evaluated = evaluate_evidence(db, hits, [target])
                     for item in evaluated.evidence:
                         row = db.execute(select(KnowledgeRecord, RagDocumentMapping)
@@ -402,15 +412,27 @@ def _execute_risk_investigation(run_id: str, *, session_factory: Any, adapter: A
                         if domain_counts[domain] < 3:
                             cited.append(citation)
                             domain_counts[domain] += 1
+                    searched = {item["arguments"]["target"]: item["result"]["validated_records"]
+                                for item in trace if item["tool"] == "search_domain"}
+                    required_gaps = []
+                    for target in sorted(TARGETS):
+                        if target not in searched:
+                            required_gaps.append(f"{target}: not searched within the investigation tool budget.")
+                        elif not searched[target]:
+                            required_gaps.append(f"{target}: search returned no validated evidence.")
+                    # Model wording cannot hide a domain that was skipped or yielded no evidence.
+                    gaps = list(dict.fromkeys(required_gaps + draft.evidence_gaps))[:20]
                     final_draft = RiskInvestigationDraft(
                         summary=draft.summary, domain_impacts=draft.domain_impacts,
-                        evidence=cited, evidence_gaps=draft.evidence_gaps,
+                        evidence=cited, evidence_gaps=gaps,
                         limitations=draft.limitations, tasks=draft.tasks,
                     )
                     run.draft_json = final_draft.model_dump(mode="json")
                     run.status = "awaiting_approval"
                     run.completed_at = utc_now()
                     run.object_version += 1
+                    trace.append({"tool": proposal.tool, "arguments": args,
+                                  "result": {"status": "awaiting_approval"}})
                     run.tool_trace_json = trace[-6:]
                     db.commit()
                     return
@@ -554,8 +576,9 @@ def approve_risk_investigation(db: Session, *, run_id: str, body: RiskInvestigat
                         excerpt_preview=item.preview[:500]) for item in draft.evidence]
     primary_id = next((record_id for record_id in point_by_record if record_id in run.source_versions_json), None)
     lock_versions = {ref.record_id: ref.source_version for ref in refs}
-    if primary_id:
-        lock_versions[primary_id] = run.source_versions_json[primary_id]
+    # The budget may leave sources unread/uncited; their original versions still
+    # define the risk context the operator is approving.
+    lock_versions.update(run.source_versions_json)
     for record_id, source_version in lock_versions.items():
         locked = db.execute(update(KnowledgeRecord).where(
             KnowledgeRecord.id == record_id,

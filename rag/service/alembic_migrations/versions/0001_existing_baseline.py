@@ -10,10 +10,10 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
-_COORDINATION_TABLES = {
-    "domain_events", "domain_event_revisions", "association_candidates", "coordination_cases",
-    "case_domain_impacts", "coordination_tasks", "execution_results", "monitoring_snapshots",
-    "retrospectives", "coordination_audit_events",
+_BASELINE_TABLES = {
+    "knowledge_records", "ingestion_events", "rag_document_mappings", "rag_sync_tasks",
+    "risk_objects", "risk_episodes", "risk_trend_points", "record_annotations",
+    "maintenance_operations",
 }
 
 
@@ -21,7 +21,8 @@ def upgrade() -> None:
     bind = op.get_bind()
     existing = set(inspect(bind).get_table_names())
     for table in Base.metadata.sorted_tables:
-        if table.name not in _COORDINATION_TABLES and table.name not in existing:
+        # New models belong to their own migration, not this historical baseline.
+        if table.name in _BASELINE_TABLES and table.name not in existing:
             table.create(bind=bind, checkfirst=True)
 
 

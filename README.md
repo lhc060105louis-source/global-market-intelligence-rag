@@ -48,6 +48,7 @@ Build the RAG interface from the repository root:
 ```powershell
 cd rag/frontend-v2
 pnpm install --frozen-lockfile
+pnpm run typecheck
 pnpm run build
 cd ../launcher
 ```
@@ -70,8 +71,12 @@ To run only the RAG Hub, install its dependencies in `rag/service`, create a loc
 ```bash
 cd rag/service
 python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --env-file .env
 ```
+
+The Hub rejects empty or template API keys at startup. Generate a private value with `python -c "import secrets; print(secrets.token_urlsafe(32))"` and save it as `RAG_HUB_API_KEY` in your local `.env`. The standalone command above explicitly loads that file; the integrated launcher does so automatically.
+
+The VOC six-dimension calculation engine is bundled in `customer-voc/six-dimensions-v3.0`; see [VOC setup and checks](customer-voc/README.md). Creator reinvestment uses stored creator and performance records. An empty database shows an empty candidate list, and missing scores, quotes or portfolio evidence are shown as unavailable.
 
 The integrated launcher uses these local endpoints by default:
 
@@ -93,6 +98,21 @@ To use this MVP, configure `RAG_HUB_ADAPTER=maxkb`, the `MAXKB_KB_C_CURRENT`, `M
 Open **Alert Coordination**, select an active risk, and choose **Investigate risk**. Review the evidence versions, domain gaps, limitations, and proposed tasks. Approve only when the sources are still current; a stale draft must be replaced by a new run. A process restart marks queued or running investigations as interrupted, so start a new run after the service returns.
 
 This is a research prototype for decision support. Model-generated summaries and tasks can be incomplete or wrong. Human review is required, and the MVP does not validate market impact, legal compliance, or investment decisions.
+
+## Automated checks
+
+GitHub Actions checks the Hub, VOC and creator suites independently with Python 3.12, and checks the frontend with Node 22 and pnpm 10.34.3. Python suites run in separate processes because the applications share module names. Install each service's requirements in its own environment; the deterministic VOC tests use the Hub requirements.
+
+Run the corresponding checks from the repository root:
+
+```bash
+python -m pytest rag/service/tests -q
+python -m pytest customer-voc/sentiment-analysis/voc-sentiment-analysis/tests -q
+cd creator-intelligence/global-creator-assessment-platform
+python -m pytest tests -q
+```
+
+The tests use temporary databases and synthetic evidence. They cover fresh database setup, recovery from an interrupted early Agent-table migration, credential validation, bounded investigations and approval transactions. They do not certify live MaxKB/Ollama connectivity or model quality.
 
 ## Data and security
 

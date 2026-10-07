@@ -5,89 +5,12 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CampaignReview, ContentTask, Kol, KolCrisisEvent, PerformanceReview
+from app.config import COMMERCIAL_WEIGHTS, RISK_WEIGHTS
+from app.models import Campaign, CampaignReview, ContentTask, Kol, KolCrisisEvent, PerformanceReview
+from app.services.scoring import calculate_summary
 
 STATE_KEY = "__asset_reinvestment__"
-
-PROJECT = {
-    "name": "XPENG G6 United Kingdom Test-Drive Reach Campaign",
-    "brand": "XPENG",
-    "model": "G6",
-    "market": "United Kingdom",
-    "market_code": "GB",
-    "platforms": ["YouTube", "Instagram", "TikTok"],
-    "objective": "Test-drive reach, deeper product awareness, and high-intent leads",
-    "budget": 60000,
-    "currency": "GBP",
-    "period": "2026 Q4",
-}
-
-ASSETS = [
-    {"handle": "@AutoBildDE", "name": "AutoBildDE", "country": "DE", "market": "Germany", "platform": "YouTube", "followers": 1420000, "collaborations": 4, "recent_project": "BYD Seal U Germany Launch Reach Campaign", "recent_score": 91, "list_status": "Preferred", "risk": "No Major Risk", "major_risk": False, "data_completeness": 96, "last_collaboration": "2026-08", "content_assets": 13, "avg_engagement": 8.6, "conversions": 3240, "content_quality": 92},
-    {"handle": "@EVReviewUK", "name": "EVReviewUK", "country": "GB", "market": "United Kingdom", "platform": "Instagram", "followers": 865000, "collaborations": 3, "recent_project": "BYD United Kingdom Test-Drive Reach Campaign", "recent_score": 88, "list_status": "Conditional", "risk": "Low Risk", "major_risk": False, "data_completeness": 92, "last_collaboration": "2026-07", "content_assets": 9, "avg_engagement": 8.1, "conversions": 2380, "content_quality": 90},
-    {"handle": "@Carwow", "name": "Carwow", "country": "GB", "market": "United Kingdom", "platform": "YouTube", "followers": 9700000, "collaborations": 5, "recent_project": "XPENG G9 United Kingdom Reach Campaign", "recent_score": 90, "list_status": "Preferred", "risk": "No Major Risk", "major_risk": False, "data_completeness": 98, "last_collaboration": "2026-06", "content_assets": 17, "avg_engagement": 7.8, "conversions": 2140, "content_quality": 94},
-    {"handle": "@MobiliteVerte", "name": "MobiliteVerte", "country": "FR", "market": "France", "platform": "TikTok", "followers": 612000, "collaborations": 2, "recent_project": "BYD Europe Short-Form Video Reach Campaign", "recent_score": 76, "list_status": "Watch", "risk": "Moderate Negative Comments", "major_risk": False, "data_completeness": 84, "last_collaboration": "2026-05", "content_assets": 6, "avg_engagement": 6.5, "conversions": 1310, "content_quality": 82},
-    {"handle": "@EVMotionDE", "name": "EVMotionDE", "country": "DE", "market": "Germany", "platform": "YouTube", "followers": 740000, "collaborations": 2, "recent_project": "BYD Germany New Vehicle Launch Reach Campaign", "recent_score": 71, "list_status": "Paused", "risk": "Critical Entity Risk Pending Verification", "major_risk": True, "data_completeness": 80, "last_collaboration": "2026-08", "content_assets": 7, "avg_engagement": 6.9, "conversions": 980, "content_quality": 78},
-]
-
-ARCHIVES = {
-    "@AutoBildDE": {
-        "markets": ["Germany", "United Kingdom"],
-        "project_history": [
-            {"project": "BYD Seal U Germany Launch Reach Campaign", "date": "2026-08", "platform": "YouTube", "result": "Objective Achievement: 128%", "score": 91, "note": "Long-form video engagement and conversions were consistent"},
-            {"project": "XPENG G9 Europe Test-Drive Campaign", "date": "2026-03", "platform": "YouTube", "result": "Objective Achievement: 116%", "score": 88, "note": "Expert-review content is reusable"},
-            {"project": "BYD Atto 3 Product Education", "date": "2025-10", "platform": "YouTube", "result": "Objective Achievement: 104%", "score": 84, "note": "Specifications were clearly explained and delivery was on time"},
-            {"project": "Europe EV Buying Guide", "date": "2025-05", "platform": "YouTube", "result": "Objective Achievement: 97%", "score": 79, "note": "Older sample; use as a trend reference only"},
-        ],
-        "reusable_assets": ["Seal U Germany launch experience long-form video", "Vehicle specification Q&A assets", "German test-drive narration structure"],
-        "risks": ["2026-08 Advertising disclosure added: corrected", "No confirmed critical entity risks found"],
-        "audit": ["2026-08-20 Post-campaign review recorded", "2026-08-21 Data completeness reviewed", "2026-08-25 Added to reinvestment assessment candidates"],
-    },
-    "@EVReviewUK": {
-        "markets": ["United Kingdom"],
-        "project_history": [
-            {"project": "BYD United Kingdom Test-Drive Reach Campaign", "date": "2026-07", "platform": "Instagram", "result": "Objective Achievement: 119%", "score": 88, "note": "Short-form video engagement efficiency was high"},
-            {"project": "XPENG P7 United Kingdom Social Partnership", "date": "2026-02", "platform": "Instagram", "result": "Objective Achievement: 109%", "score": 84, "note": "Scheduling coordination was consistent"},
-            {"project": "Europe Electric Vehicle Feature", "date": "2025-09", "platform": "YouTube", "result": "Objective Achievement: 102%", "score": 81, "note": "Comment quality was good"},
-        ],
-        "reusable_assets": ["United Kingdom user test-drive Q&A", "Vertical vehicle highlight template"],
-        "risks": ["No confirmed critical entity risks found"],
-        "audit": ["2026-07-30 Post-campaign review recorded", "2026-08-25 Reinvestment candidates updated"],
-    },
-}
-
-EVALUATIONS = {
-    "@AutoBildDE": {"score": 82, "status": "Continue with Conditions", "quote_cap": 18000, "content_format": "1 YouTube in-depth test drive + 1 short cutdown", "schedule": "Lock the script 10 days before launch; publish during launch week", "exclusivity": "30-day soft exclusivity against comparable competitors", "dimensions": [88, 76, 92, 74, 86, 94]},
-    "@EVReviewUK": {"score": 87, "status": "Preferred", "quote_cap": 15000, "content_format": "2 Instagram Reels + Stories", "schedule": "Publish within 7 days after the test drive", "exclusivity": "14-day soft exclusivity against comparable competitors", "dimensions": [94, 88, 89, 82, 86, 84]},
-    "@Carwow": {"score": 91, "status": "Preferred", "quote_cap": 28000, "content_format": "1 core YouTube test drive", "schedule": "Priority slot during launch week", "exclusivity": "Confirm in the contract", "dimensions": [96, 94, 95, 76, 91, 93]},
-    "@MobiliteVerte": {"score": 68, "status": "Watch", "quote_cap": 8000, "content_format": "2 TikTok short-form videos", "schedule": "Amplification after launch", "exclusivity": "No mandatory exclusivity", "dimensions": [55, 72, 76, 78, 73, 80]},
-    "@EVMotionDE": {"score": 64, "status": "Paused Assessment", "quote_cap": 0, "content_format": "Define after risk verification", "schedule": "Paused", "exclusivity": "—", "dimensions": [62, 70, 72, 69, 74, 38]},
-}
-
-DIMENSIONS = [
-    ("Audience Fit", "Based on historical market reach and the target project's audience profile"),
-    ("Content Fit", "Based on historical content quality, vehicle topics, and reusable assets"),
-    ("Platform Performance", "Based on historical engagement and content performance by platform"),
-    ("Commercial Efficiency", "Based on historical quotes, conversions, and project budget limits"),
-    ("Execution Reliability", "Based on delivery, brief coordination, and scheduling history"),
-    ("Brand Safety", "Based on entity risks, disclosures, and historical compliance records"),
-]
-
-SCENARIOS = [
-    {"id": "A", "name": "Core Reach", "kols": ["@Carwow", "@EVReviewUK"], "cost": 52000, "reach_range": "1.8M–2.4M", "engagement_range": "120K–170K", "confidence": "Medium-High", "note": "Prioritizes the core United Kingdom audience while preserving budget flexibility."},
-    {"id": "B", "name": "Expert Endorsement", "kols": ["@Carwow", "@AutoBildDE"], "cost": 58000, "reach_range": "2.0M–2.7M", "engagement_range": "130K–180K", "confidence": "Medium", "note": "Strong subject-matter credibility; confirm the United Kingdom audience share for cross-market content."},
-    {"id": "C", "name": "Social Amplification", "kols": ["@EVReviewUK", "@MobiliteVerte"], "cost": 34000, "reach_range": "1.2M–1.8M", "engagement_range": "90K–145K", "confidence": "Medium", "note": "Lower cost and strong short-form reach, with less capacity to build in-depth awareness."},
-    {"id": "D", "name": "Balanced Mix", "kols": ["@Carwow", "@EVReviewUK", "@MobiliteVerte"], "cost": 60000, "reach_range": "2.3M–3.0M", "engagement_range": "155K–215K", "confidence": "Medium", "note": "Uses the full budget; retain a contingency plan for quote changes."},
-]
-
-TASKS = [
-    {"task_code": "ACT-001", "kol": "@Carwow", "task": "Confirm the quote and content package", "owner": "Commercial Lead", "due_at": "2026-09-02", "status": "In Progress", "dependency": "None"},
-    {"task_code": "ACT-002", "kol": "@Carwow", "task": "Confirm the test-drive and publication schedule", "owner": "Project Manager", "due_at": "2026-09-04", "status": "To Do", "dependency": "ACT-001"},
-    {"task_code": "ACT-003", "kol": "@EVReviewUK", "task": "Confirm the Reels format", "owner": "Content Lead", "due_at": "2026-09-03", "status": "To Do", "dependency": "None"},
-    {"task_code": "ACT-004", "kol": "@EVReviewUK", "task": "Prepare the brief and disclosure requirements", "owner": "Content Lead", "due_at": "2026-09-06", "status": "To Do", "dependency": "ACT-003"},
-    {"task_code": "ACT-005", "kol": "@MobiliteVerte", "task": "Confirm whether to include in supplemental amplification", "owner": "Media Lead", "due_at": "2026-09-05", "status": "To Do", "dependency": "Scenario approval"},
-    {"task_code": "ACT-006", "kol": "Project Team", "task": "Complete the list risk review", "owner": "Brand Safety", "due_at": "2026-09-01", "status": "In Progress", "dependency": "None"},
-]
+STATUSES = ("Preferred", "Conditional", "Watch", "Paused", "Blocked")
 
 
 def _now():
@@ -95,436 +18,288 @@ def _now():
 
 
 def _read_state(session: Session):
+    # Reading an empty database must not create a fictitious campaign record.
     row = session.scalar(select(CampaignReview).where(CampaignReview.campaign == STATE_KEY))
-    if row is None:
-        row = CampaignReview(
-            campaign=STATE_KEY,
-            status="System Status",
-            analysis_data={
-                "selected_scenario": "A",
-                "approvals": {},
-                "governance": {},
-                "governance_log": [],
-                "task_status": {},
-            },
-        )
-        session.add(row)
-        session.commit()
-        session.refresh(row)
-
-    state = dict(row.analysis_data or {})
-    state.setdefault("selected_scenario", "A")
-    state.setdefault("approvals", {})
-    state.setdefault("governance", {})
-    state.setdefault("governance_log", [])
-    state.setdefault("task_status", {})
+    state = dict(row.analysis_data or {}) if row else {}
+    for key, default in (("approvals", {}), ("campaign_approvals", {}), ("governance", {}), ("governance_log", []), ("task_status", {})):
+        state.setdefault(key, default)
+    # Older decisions were handle-keyed. Retain them only when the handle
+    # identifies one persisted creator; later writes use the stable sync identity.
+    kols = list(session.scalars(select(Kol).where(Kol.deleted_at.is_(None))))
+    for kol in kols:
+        if not kol.handle or sum(k.handle == kol.handle for k in kols) != 1:
+            continue
+        for key in ("approvals", "governance"):
+            values = dict(state[key])
+            if kol.handle in values:
+                values.setdefault(kol.sync_id, values[kol.handle])
+            state[key] = values
     return row, state
 
 
-def _save_state(session: Session, row: CampaignReview, state: dict):
+def _save_state(session, row, state):
+    if row is None:
+        row = CampaignReview(campaign=STATE_KEY, status="System Status")
+        session.add(row)
     row.analysis_data = dict(state)
     row.updated_at = _now()
     session.commit()
 
 
-def _all_assets(session: Session):
-    assets = [dict(item) for item in ASSETS]
-    by_handle = {item["handle"]: item for item in assets}
+def _summary(kol, score_type="commercial"):
+    weights = COMMERCIAL_WEIGHTS if score_type == "commercial" else RISK_WEIGHTS
+    records = {r.dimension: r.final_score for r in kol.score_records if r.score_type == score_type}
+    return calculate_summary(records, weights)
 
-    kols = list(session.scalars(select(Kol).where(Kol.deleted_at.is_(None))))
-    reviews = list(session.scalars(select(PerformanceReview).where(PerformanceReview.deleted_at.is_(None)).order_by(PerformanceReview.created_at.desc())))
-    content_tasks = list(session.scalars(select(ContentTask)))
-    crises = list(session.scalars(select(KolCrisisEvent).where(KolCrisisEvent.status != "Closed")))
 
-    reviews_by_kol = {}
-    for review in reviews:
-        reviews_by_kol.setdefault(review.kol_id, []).append(review)
+def _history(session, kol_id):
+    return list(session.scalars(select(PerformanceReview).where(
+        PerformanceReview.kol_id == kol_id, PerformanceReview.deleted_at.is_(None)
+    ).order_by(PerformanceReview.created_at.desc(), PerformanceReview.id.desc())))
 
-    content_count = {}
-    for task in content_tasks:
-        if task.kol_id is not None:
-            content_count[task.kol_id] = content_count.get(task.kol_id, 0) + 1
 
-    active_risk = set()
-    for crisis in crises:
-        details = crisis.details or {}
-        handle = crisis.kol.handle if crisis.kol and crisis.kol.handle else details.get("kol_handle")
-        if handle:
-            active_risk.add(handle)
+def _tasks(session, kol_id=None):
+    query = select(ContentTask).join(Kol, ContentTask.kol_id == Kol.id).where(Kol.deleted_at.is_(None))
+    if kol_id is not None:
+        query = query.where(ContentTask.kol_id == kol_id)
+    return list(session.scalars(query.order_by(ContentTask.id)))
 
-    for kol in kols:
-        if not kol.handle or kol.handle not in by_handle:
-            continue
-        item = by_handle[kol.handle]
-        item["kol_id"] = kol.id
-        item["name"] = kol.name or item["name"]
-        item["country"] = kol.country or item["country"]
-        item["platform"] = kol.platform or item["platform"]
-        if kol.followers is not None:
-            item["followers"] = kol.followers
 
-        history = reviews_by_kol.get(kol.id, [])
-        if history:
-            latest = history[0]
-            item["collaborations"] = len(history)
-            item["recent_project"] = latest.campaign
-            item["last_collaboration"] = latest.created_at.strftime("%Y-%m")
-            item["conversions"] = sum(x.conversions or 0 for x in history)
-        if content_count.get(kol.id):
-            item["content_assets"] = content_count[kol.id]
+def _sum_known(records, field):
+    values = [getattr(r, field) for r in records if getattr(r, field) is not None]
+    return sum(values) if values else None
 
-    for item in assets:
-        item.setdefault("kol_id", None)
-        if item["handle"] in active_risk:
-            item["risk"] = "An unresolved critical entity-level risk event exists."
-            item["major_risk"] = True
-            item["list_status"] = "Paused"
 
+def _all_assets(session):
     _, state = _read_state(session)
-    for item in assets:
-        saved = state["governance"].get(item["handle"])
-        if not saved:
-            continue
-        item["list_status"] = saved.get("status", item["list_status"])
-        item["risk"] = saved.get("reason") or item["risk"]
-        if item["list_status"] in {"Paused", "Blocked"}:
-            item["major_risk"] = True
-
+    assets = []
+    for kol in session.scalars(select(Kol).where(Kol.deleted_at.is_(None)).order_by(Kol.id)):
+        history = _history(session, kol.id)
+        tasks = _tasks(session, kol.id)
+        summary = _summary(kol)
+        crises = list(session.scalars(select(KolCrisisEvent).where(
+            KolCrisisEvent.kol_id == kol.id, KolCrisisEvent.status != "Closed"
+        )))
+        major_risk = any(c.level == "Critical" for c in crises)
+        governance = state["governance"].get(kol.sync_id, {})
+        status = governance.get("status") or ("Paused" if major_risk else "Unreviewed")
+        major_risk = major_risk or status in {"Paused", "Blocked"}
+        # Rate requires numerator and denominator from the same observations.
+        pairs = [r for r in history if r.impressions is not None and r.engagements is not None]
+        impressions = sum(r.impressions for r in pairs)
+        rate = round(sum(r.engagements for r in pairs) / impressions * 100, 2) if impressions > 0 else None
+        latest = history[0] if history else None
+        assets.append({
+            "kol_id": kol.id, "creator_id": kol.sync_id, "handle": kol.handle,
+            "name": kol.name or kol.handle or str(kol.id), "country": kol.country,
+            "market": kol.country, "platform": kol.platform, "followers": kol.followers,
+            "collaborations": len({r.campaign for r in history}),
+            "recent_project": latest.campaign if latest else None,
+            "recent_score": summary.score, "list_status": status,
+            "risk": governance.get("reason") or ("; ".join(c.title for c in crises) if crises else "No entity-risk events recorded; assessment may be incomplete."),
+            "major_risk": major_risk, "data_completeness": round(summary.completeness * 100, 1),
+            "last_collaboration": latest.created_at.isoformat() if latest else None,
+            "content_assets": sum(bool(t.content_url) for t in tasks), "avg_engagement": rate,
+            "conversions": _sum_known(history, "conversions"), "content_quality": None,
+        })
     return assets
 
 
-def _find_asset(session: Session, key: str):
-    for item in _all_assets(session):
-        if item["handle"].lower() == key.lower() or str(item.get("kol_id")) == key:
-            return item
-    return None
-
-
-def get_asset_overview(session: Session, country=None, platform=None, status=None):
+def _find_asset(session, key):
     assets = _all_assets(session)
-    rows = [
-        item for item in assets
-        if (not country or item["country"] == country)
-        and (not platform or item["platform"] == platform)
-        and (not status or item["list_status"] == status)
-    ]
+    exact = [a for a in assets if str(a["kol_id"]) == key or a["creator_id"] == key]
+    if exact:
+        return exact[0]
+    matches = [a for a in assets if a["handle"] and a["handle"].casefold() == key.casefold()]
+    # Handles can repeat on different platforms; do not write to an arbitrary creator.
+    return matches[0] if len(matches) == 1 else None
 
-    counts = {name: sum(1 for item in assets if item["list_status"] == name) for name in ["Preferred", "Conditional", "Watch", "Paused", "Blocked"]}
-    attention = [{"type": "risk", "text": f"{item['handle']}: {item['risk']}"} for item in assets if item["major_risk"]]
-    attention += [{"type": "Data", "text": f"{item['handle']} data completeness is {item['data_completeness']}%; complete missing information before reinvestment."} for item in assets if item["data_completeness"] < 85]
 
-    by_market = {}
-    by_platform = {}
-    for item in assets:
-        by_market[item["market"]] = by_market.get(item["market"], 0) + 1
-        by_platform[item["platform"]] = by_platform.get(item["platform"], 0) + 1
+def _project(session, campaign_id):
+    if not campaign_id:
+        return None
+    row = session.scalar(select(Campaign).where(Campaign.campaign_id == campaign_id, Campaign.archived_at.is_(None)))
+    if row is None:
+        raise LookupError("Campaign not found.")
+    return {"campaign_id": row.campaign_id, "name": row.project_name, "brand": row.brand,
+            "model": row.vehicle_model, "market": row.primary_market, "market_code": row.primary_market,
+            "objective": ", ".join(row.objectives), "budget": row.budget_total, "currency": row.currency,
+            "period": f"{row.start_date.isoformat()} – {row.end_date.isoformat()}", "owner": row.owner}
 
+
+def get_asset_overview(session, country=None, platform=None, status=None):
+    assets = _all_assets(session)
+    rows = [a for a in assets if (not country or a["country"] == country)
+            and (not platform or a["platform"] == platform) and (not status or a["list_status"] == status)]
+    counts = {name: sum(a["list_status"] == name for a in assets) for name in STATUSES}
+    markets, platforms = {}, {}
+    for a in assets:
+        markets[a["market"]] = markets.get(a["market"], 0) + 1
+        platforms[a["platform"]] = platforms.get(a["platform"], 0) + 1
     return {
-        "context": "Historical partnership asset pool",
-        "metrics": {
-            "total": len(assets),
-            "preferred": counts["Preferred"],
-            "conditional": counts["Conditional"],
-            "watch": counts["Watch"],
-            "blocked": counts["Paused"] + counts["Blocked"],
-            "major_risk": sum(1 for item in assets if item["major_risk"]),
-        },
-        "structure": {"by_market": by_market, "by_platform": by_platform, "statuses": counts},
-        "attention": attention,
-        "assets": rows,
-        "filters": {"country": country or "", "platform": platform or "", "status": status or ""},
+        "context": "Persisted creator records and partnership evidence",
+        "metrics": {"total": len(assets), "preferred": counts["Preferred"], "conditional": counts["Conditional"],
+                    "watch": counts["Watch"], "blocked": counts["Paused"] + counts["Blocked"],
+                    "major_risk": sum(a["major_risk"] for a in assets)},
+        "structure": {"by_market": markets, "by_platform": platforms, "statuses": counts},
+        "attention": [{"type": "Risk", "text": f"{a['name']}: {a['risk']}"} for a in assets if a["major_risk"]]
+            + [{"type": "Data", "text": f"{a['name']}: {a['data_completeness']}% of weighted commercial score evidence is available."} for a in assets if a["data_completeness"] < 100],
+        "assets": rows, "filters": {"country": country or "", "platform": platform or "", "status": status or ""},
         "updated_at": _now().isoformat(),
     }
 
 
-def get_asset_archive(session: Session, key: str):
+def get_asset_archive(session, key):
     item = _find_asset(session, key)
     if item is None:
         return None
-
-    archive = ARCHIVES.get(item["handle"])
-    if archive:
-        archive = {k: list(v) if isinstance(v, list) else v for k, v in archive.items()}
-        archive["project_history"] = [dict(row) for row in archive["project_history"]]
-    else:
-        archive = {
-            "markets": [item["market"]],
-            "project_history": [
-                {"project": item["recent_project"], "date": item["last_collaboration"], "platform": item["platform"], "result": f"Review score: {item['recent_score']}", "score": item["recent_score"], "note": "Most recent partnership result."},
-                {"project": "Historical partnership record", "date": "2025-12", "platform": item["platform"], "result": "Historical sample", "score": max(0, item["recent_score"] - 5), "note": "For archive reference only."},
-            ],
-            "reusable_assets": ["Historical content assets", "Partnership briefs and execution records"],
-            "risks": [item["risk"]],
-            "audit": [f"{item['last_collaboration']} — latest partnership record added to the archive."],
-        }
-
-    if item.get("kol_id"):
-        records = list(session.scalars(select(PerformanceReview).where(PerformanceReview.kol_id == item["kol_id"], PerformanceReview.deleted_at.is_(None)).order_by(PerformanceReview.created_at.desc())))
-        if records:
-            archive["project_history"] = [
-                {
-                    "project": row.campaign,
-                    "date": row.created_at.strftime("%Y-%m"),
-                    "platform": item["platform"],
-                    "result": f"Impressions: {row.impressions if row.impressions is not None else 'Unavailable'} / Engagements: {row.engagements if row.engagements is not None else 'Unavailable'} / Conversions: {row.conversions if row.conversions is not None else 'Unavailable'}",
-                    "score": None,
-                    "note": "From the existing partnership performance record.",
-                }
-                for row in records
-            ]
-
-    history = archive["project_history"]
-    score_count = sum(1 for row in history if row.get("score") is not None)
-    identity = {name: item[name] for name in ["kol_id", "handle", "name", "country", "market", "platform", "followers", "list_status"]}
-
+    history = [{"project": r.campaign, "date": r.created_at.isoformat(), "platform": item["platform"],
+                "result": f"Impressions: {r.impressions if r.impressions is not None else 'Unavailable'} / Engagements: {r.engagements if r.engagements is not None else 'Unavailable'} / Conversions: {r.conversions if r.conversions is not None else 'Unavailable'}",
+                "score": None, "note": r.notes or "Persisted performance record."}
+               for r in _history(session, item["kol_id"])]
+    tasks = _tasks(session, item["kol_id"])
     return {
-        "identity": identity,
-        "metrics": {
-            "collaborations": item["collaborations"],
-            "markets": len(archive["markets"]),
-            "content_assets": item["content_assets"],
-            "avg_engagement": item["avg_engagement"],
-            "conversions": item["conversions"],
-            "content_quality": item["content_quality"],
-        },
-        "data_completeness": item["data_completeness"],
-        "trend": [{"date": row["date"], "score": row["score"], "project": row["project"]} for row in history] if score_count >= 3 else [],
-        "trend_note": "The trend reflects historical projects and does not predict the next project." if score_count >= 3 else "The sample is too small to generate a trend; individual results are retained.",
-        "recent_cooperation": history[0],
-        "project_history": history,
-        "reusable_assets": archive["reusable_assets"],
-        "risks": archive["risks"],
-        "audit": archive["audit"],
-        "next": {"page": "evaluation", "target_project": PROJECT["name"]},
+        "identity": {k: item[k] for k in ("kol_id", "creator_id", "handle", "name", "country", "market", "platform", "followers", "list_status")},
+        "metrics": {k: item[k] for k in ("collaborations", "content_assets", "avg_engagement", "conversions", "content_quality")}
+            | {"markets": len({t.market for t in tasks if t.market})},
+        "data_completeness": item["data_completeness"], "trend": [],
+        "trend_note": "Campaign review scores are unavailable; no score trend can be inferred.",
+        "recent_cooperation": history[0] if history else None, "project_history": history,
+        "reusable_assets": [t.content_url for t in tasks if t.content_url], "risks": [item["risk"]],
+        "audit": [f"{r['date']} — performance record: {r['project']}" for r in history],
+        "next": {"page": "evaluation", "target_project": None},
     }
 
 
-def get_reinvestment_evaluation(session: Session, key: str):
+def get_reinvestment_evaluation(session, key, campaign_id=None):
     item = _find_asset(session, key)
     if item is None:
         return None
-
-    seed = EVALUATIONS[item["handle"]]
-    _, state = _read_state(session)
-    blocked = item["major_risk"] or item["list_status"] in {"Paused", "Blocked"}
+    kol = session.get(Kol, item["kol_id"])
+    records = {(r.score_type, r.dimension): r for r in kol.score_records}
     dimensions = []
-
-    for i, (name, evidence) in enumerate(DIMENSIONS):
-        limitation = "No critical information is missing." if item["data_completeness"] >= 90 else "Some historical data is insufficient; supplement it before confirmation."
-        if name == "Brand Safety" and blocked:
-            limitation = "An entity-level risk blocks reinvestment; manual review is required first."
-        dimensions.append({"name": name, "score": seed["dimensions"][i], "evidence": evidence, "limitation": limitation})
-
-    approval = state["approvals"].get(item["handle"], {"decision": "Pending Approval", "note": "", "updated_at": None})
+    for score_type, weights in (("commercial", COMMERCIAL_WEIGHTS), ("risk", RISK_WEIGHTS)):
+        for dimension in weights:
+            record = records.get((score_type, dimension))
+            manual = record is not None and record.manual_score is not None
+            dimensions.append({"name": dimension.replace("_", " ").title(), "dimension": dimension, "score_type": score_type,
+                "score": record.final_score if record else None,
+                "evidence": (record.manual_evidence if manual else record.evidence) if record else None,
+                "source": (record.manual_source if manual else record.source) if record else None,
+                "limitation": "Historical assessment; not a project-specific reinvestment score." if record and record.final_score is not None else "Score evidence unavailable."})
+    _, state = _read_state(session)
+    project = _project(session, campaign_id)
+    approvals = state["campaign_approvals"].get(campaign_id, {}) if campaign_id else state["approvals"]
     return {
-        "kol": {"handle": item["handle"], "name": item["name"], "market": item["market"], "platform": item["platform"]},
-        "project": PROJECT,
-        "suggestion_score": seed["score"],
-        "suggestion_status": "Paused Assessment" if blocked else seed["status"],
-        "data_completeness": item["data_completeness"],
-        "major_risk": blocked,
-        "dimensions": dimensions,
-        "conditions": {
-            "quote_cap": seed["quote_cap"],
-            "currency": PROJECT["currency"],
-            "content_format": seed["content_format"],
-            "schedule": seed["schedule"],
-            "disclosure": "Follow United Kingdom commercial partnership disclosure requirements.",
-            "exclusivity": seed["exclusivity"],
-            "data_required": "After publication, provide platform screenshots and basic engagement and conversion data.",
-        },
-        "approval": approval,
-        "note": "The recommendation score supports comparisons for this project. Critical risks and manual approvals are handled separately.",
+        "kol": {k: item[k] for k in ("kol_id", "creator_id", "handle", "name", "market", "platform")},
+        "project": project, "suggestion_score": None, "historical_score": item["recent_score"],
+        "suggestion_status": "Paused Assessment" if item["major_risk"] else "Insufficient Evidence",
+        "data_completeness": item["data_completeness"], "major_risk": item["major_risk"], "dimensions": dimensions,
+        "conditions": {"quote_cap": None, "currency": None, "content_format": None, "schedule": None,
+                       "disclosure": None, "exclusivity": None, "data_required": "Select a campaign and record a project-specific quote, reach evidence and conditions."},
+        "approval": approvals.get(item["creator_id"], {"decision": "Pending Approval", "note": "", "updated_at": None}),
+        "note": "Historical assessment scores retain manual overrides and missing-data completeness. Project fit, quote caps and forecasts are unavailable until supported by project-specific evidence.",
     }
 
 
-def save_evaluation_approval(session: Session, key: str, decision: str, note=None):
+def save_evaluation_approval(session, key, decision, note=None, campaign_id=None):
     if decision not in {"Approved", "Conditionally Approved", "Returned for More Information", "Rejected"}:
         raise ValueError("Invalid reinvestment approval decision.")
     item = _find_asset(session, key)
     if item is None:
-        raise LookupError("Creator not found.")
-
+        raise LookupError("Creator not found or handle ambiguous.")
+    _project(session, campaign_id)
     row, state = _read_state(session)
-    approvals = dict(state["approvals"])
     saved = {"decision": decision, "note": note or "", "updated_at": _now().isoformat()}
-    approvals[item["handle"]] = saved
-    state["approvals"] = approvals
+    if campaign_id:
+        approvals = {**state["campaign_approvals"].get(campaign_id, {}), item["creator_id"]: saved}
+        state["campaign_approvals"] = {**state["campaign_approvals"], campaign_id: approvals}
+    else:
+        state["approvals"] = {**state["approvals"], item["creator_id"]: saved}
     _save_state(session, row, state)
     return saved
 
 
-def get_portfolio_plan(session: Session):
-    _, state = _read_state(session)
-    selected = state["selected_scenario"]
-    assets = {item["handle"]: item for item in _all_assets(session)}
-
-    candidates = []
-    for handle in ["@Carwow", "@EVReviewUK", "@AutoBildDE", "@MobiliteVerte"]:
-        item = assets[handle]
-        evaluation = get_reinvestment_evaluation(session, handle)
-        candidates.append({
-            "handle": handle,
-            "name": item["name"],
-            "market": item["market"],
-            "platform": item["platform"],
-            "recommendation": evaluation["suggestion_status"],
-            "score": evaluation["suggestion_score"],
-            "quote_cap": evaluation["conditions"]["quote_cap"],
-            "currency": PROJECT["currency"],
-            "availability": "Available to Coordinate",
-            "risk": item["risk"],
-            "blocked": evaluation["major_risk"],
-        })
-
-    scenarios = []
-    for item in SCENARIOS:
-        row = dict(item)
-        row["selected"] = row["id"] == selected
-        row["budget_usage"] = round(row["cost"] / PROJECT["budget"] * 100, 1)
-        row["assumption"] = "Estimated from historical samples and current quote caps."
-        scenarios.append(row)
-
-    current = next(item for item in scenarios if item["selected"])
-    return {
-        "project": PROJECT,
-        "candidates": candidates,
-        "scenarios": scenarios,
-        "selected_scenario": selected,
-        "checks": [
-            {"name": "Budget", "status": "Passed" if current["cost"] <= PROJECT["budget"] else "Over Budget", "detail": f"{current['cost']:,} / {PROJECT['budget']:,} {PROJECT['currency']}"},
-            {"name": "Role Coverage", "status": "Passed", "detail": "Candidates are available for both core reach and amplification roles."},
-            {"name": "Audience Overlap", "status": "Notice", "detail": "Estimated at approximately 18% from historical samples; for scenario comparison only."},
-            {"name": "Entity Risk", "status": "Passed", "detail": "The current scenario includes no paused or blocked creators."},
-        ],
-        "prediction_note": "Reach and engagement are indicative ranges, not performance guarantees.",
-    }
+def get_portfolio_plan(session, campaign_id=None):
+    project = _project(session, campaign_id)
+    candidates = [{"kol_id": a["kol_id"], "creator_id": a["creator_id"], "handle": a["handle"], "name": a["name"],
+                   "market": a["market"], "platform": a["platform"], "recommendation": "Paused Assessment" if a["major_risk"] else "Insufficient Evidence",
+                   "score": None, "historical_score": a["recent_score"], "quote_cap": None,
+                   "currency": project["currency"] if project else None, "availability": "Unavailable", "risk": a["risk"], "blocked": a["major_risk"]}
+                  for a in _all_assets(session)]
+    return {"project": project, "candidates": candidates, "scenarios": [], "selected_scenario": None,
+            "checks": [{"name": name, "status": "Unavailable", "detail": detail} for name, detail in (
+                ("Budget", "No selected portfolio or project-specific quotes."),
+                ("Role Coverage", "No selected portfolio and evidenced role assignments."),
+                ("Audience Overlap", "No measured audience overlap evidence."),
+                ("Entity Risk", "No portfolio selected; consult individual creator governance."))],
+            "prediction_note": "Portfolio planning is unavailable until an actual campaign, quotes and a recorded proposal are selected. Historical impressions are not unique reach or a forecast."}
 
 
-def select_portfolio_scenario(session: Session, scenario_id: str):
-    if scenario_id not in {item["id"] for item in SCENARIOS}:
-        raise ValueError("Unknown portfolio scenario.")
-    row, state = _read_state(session)
-    state["selected_scenario"] = scenario_id
-    _save_state(session, row, state)
-    return {"selected_scenario": scenario_id, "updated_at": _now().isoformat()}
+def select_portfolio_scenario(session, scenario_id):
+    raise ValueError("Portfolio scenarios are unavailable: no recorded proposal with project-specific quotes exists.")
 
 
-def get_governance(session: Session):
+def get_governance(session):
     assets = _all_assets(session)
     _, state = _read_state(session)
     rows = []
-
     for item in assets:
-        saved = state["governance"].get(item["handle"], {})
-        rows.append({
-            "handle": item["handle"],
-            "name": item["name"],
-            "status": item["list_status"],
-            "scope": saved.get("scope") or "European automotive partnership projects",
-            "reason": saved.get("reason") or item["risk"],
-            "affected_projects": 3 if item["major_risk"] else 0,
-            "owner": saved.get("owner") or "Brand Safety / Project Team",
-            "recent_change": saved.get("updated_at") or item["last_collaboration"],
-            "review_at": saved.get("review_at") or "Review by project",
-            "major_risk": item["major_risk"],
-        })
-
-    counts = {name: sum(1 for item in rows if item["status"] == name) for name in ["Preferred", "Conditional", "Watch", "Paused", "Blocked"]}
-    risk_row = next((item for item in rows if item["major_risk"]), None)
-    return {
-        "metrics": {**counts, "pending_approval": sum(1 for item in rows if item["status"] in {"Conditional", "Watch", "Paused"})},
-        "risk_banner": {
-            "visible": risk_row is not None,
-            "title": "Review the critical entity-level risk before deciding partnership eligibility." if risk_row else "No critical entity-level risks are currently recorded.",
-            "kol": risk_row["handle"] if risk_row else None,
-            "fact": "The current record captures a risk signal and a pause action; a person must confirm the final decision." if risk_row else "",
-        },
-        "rows": rows,
-        "timeline": state["governance_log"][-12:],
-        "rule": "List status governs partnership eligibility across projects. Routine content performance does not by itself indicate entity-level risk.",
-    }
+        saved = state["governance"].get(item["creator_id"], {})
+        rows.append({"kol_id": item["kol_id"], "creator_id": item["creator_id"], "handle": item["handle"], "name": item["name"],
+            "status": item["list_status"], "scope": saved.get("scope"), "reason": saved.get("reason") or item["risk"],
+            "affected_projects": None, "owner": saved.get("owner"), "recent_change": saved.get("updated_at"),
+            "review_at": saved.get("review_at"), "major_risk": item["major_risk"]})
+    risk = next((r for r in rows if r["major_risk"]), None)
+    return {"metrics": {name: sum(r["status"] == name for r in rows) for name in STATUSES}
+            | {"pending_approval": sum(r["status"] in {"Unreviewed", "Conditional", "Watch", "Paused"} for r in rows)},
+            "risk_banner": {"visible": bool(risk), "title": "Review recorded entity risk and governance restrictions." if risk else "No blocking entity-risk events recorded.",
+                            "kol": risk["handle"] if risk else None, "fact": risk["reason"] if risk else ""},
+            "rows": rows, "timeline": state["governance_log"][-12:],
+            "rule": "List status governs partnership eligibility. Missing risk evidence does not demonstrate safety."}
 
 
-def update_governance(session: Session, key: str, status: str, reason: str, scope=None, review_at=None):
-    if status not in {"Preferred", "Conditional", "Watch", "Paused", "Blocked"}:
+def update_governance(session, key, status, reason, scope=None, review_at=None):
+    if status not in STATUSES:
         raise ValueError("Invalid list status.")
     if not reason.strip():
         raise ValueError("A reason is required to change the status.")
-
     item = _find_asset(session, key)
     if item is None:
-        raise LookupError("Creator not found.")
-
+        raise LookupError("Creator not found or handle ambiguous.")
     row, state = _read_state(session)
-    governance = dict(state["governance"])
-    log = list(state["governance_log"])
-    saved = {
-        "status": status,
-        "reason": reason.strip(),
-        "scope": scope or "European automotive partnership projects",
-        "review_at": review_at or "Review by project",
-        "owner": "Brand Safety / Project Team",
-        "updated_at": _now().isoformat(),
-    }
-    governance[item["handle"]] = saved
-    log.append({"time": saved["updated_at"], "kol": item["handle"], "event": f"List status changed to {status}.", "reason": reason.strip()})
-    state["governance"] = governance
-    state["governance_log"] = log
+    saved = {"status": status, "reason": reason.strip(), "scope": scope or None,
+             "review_at": review_at or None, "owner": None, "updated_at": _now().isoformat()}
+    state["governance"] = {**state["governance"], item["creator_id"]: saved}
+    state["governance_log"] = [*state["governance_log"], {"time": saved["updated_at"], "kol_id": item["kol_id"],
+        "creator_id": item["creator_id"], "kol": item["handle"], "event": f"List status changed to {status}.", "reason": reason.strip()}]
     _save_state(session, row, state)
-    return {"handle": item["handle"], **saved}
+    return {"kol_id": item["kol_id"], "handle": item["handle"], **saved}
 
 
-def get_action_tracking(session: Session):
+def get_action_tracking(session, campaign_id=None):
+    project = _project(session, campaign_id)
     _, state = _read_state(session)
-    scenario = next(item for item in SCENARIOS if item["id"] == state["selected_scenario"])
-    updates = state["task_status"]
-
-    tasks = []
-    for item in TASKS:
-        row = dict(item)
-        row["status"] = updates.get(row["task_code"], row["status"])
-        tasks.append(row)
-
-    candidates = []
-    for handle in scenario["kols"]:
-        candidates.append({
-            "handle": handle,
-            "stage": "Quoting" if handle == "@Carwow" else "Contact Needed",
-            "quote": "Unconfirmed",
-            "schedule": "Unconfirmed",
-            "conditions": "P30 approval conditions apply.",
-            "blocker": "Confirm whether to include in supplemental amplification for the United Kingdom project." if handle == "@MobiliteVerte" else "None",
-        })
-
-    stages = {name: 0 for name in ["Contact Needed", "Quoting", "Schedule Confirmation", "Terms Confirmation", "Brief Preparation", "Contracting", "Confirmed", "Exited"]}
-    for item in candidates:
-        stages[item["stage"]] += 1
-
-    return {
-        "project": PROJECT,
-        "source_plan": f"Scenario {scenario['id']} · {scenario['name']}",
-        "expected_budget": scenario["cost"],
-        "currency": PROJECT["currency"],
-        "milestone": "Scenario selected; proceed with quotes and schedule confirmation.",
-        "next_deadline": "2026-09-02",
-        "owner": "Project Lead",
-        "pipeline": stages,
-        "candidates": candidates,
-        "tasks": tasks,
-        "writeback_note": "After execution, add final quotes, content packages, and confirmation results to the historical archive. Confirmed creators then enter in-project monitoring.",
-    }
+    tasks = _tasks(session)
+    if project:
+        tasks = [t for t in tasks if t.campaign in {project["campaign_id"], project["name"]}]
+    rows = [{"task_code": t.task_code, "kol_id": t.kol_id, "kol": t.kol.handle or t.kol.name or str(t.kol_id),
+             "task": t.title, "owner": None, "due_at": t.planned_publish_at.isoformat() if t.planned_publish_at else None,
+             "status": state["task_status"].get(t.task_code, t.execution_stage), "dependency": None} for t in tasks]
+    deadlines = [t.planned_publish_at for t in tasks if t.planned_publish_at]
+    return {"project": project, "source_plan": None, "expected_budget": None,
+            "currency": project["currency"] if project else None, "milestone": None,
+            "next_deadline": min(deadlines).isoformat() if deadlines else None, "owner": project["owner"] if project else None,
+            "pipeline": {}, "candidates": [], "tasks": rows,
+            "writeback_note": "Tasks come from persisted content records; no portfolio, quote or schedule has been assumed."}
 
 
-def update_action_status(session: Session, task_code: str, status: str):
+def update_action_status(session, task_code, status):
     if status not in {"To Do", "In Progress", "Completed", "Blocked"}:
         raise ValueError("Invalid task status.")
-    if task_code not in {item["task_code"] for item in TASKS}:
-        raise LookupError("Task not found.")
-
+    if task_code not in {t.task_code for t in _tasks(session)}:
+        raise LookupError("Task not found or creator unavailable.")
     row, state = _read_state(session)
-    task_status = dict(state["task_status"])
-    task_status[task_code] = status
-    state["task_status"] = task_status
+    state["task_status"] = {**state["task_status"], task_code: status}
     _save_state(session, row, state)
     return {"task_code": task_code, "status": status, "updated_at": _now().isoformat()}

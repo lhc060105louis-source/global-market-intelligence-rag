@@ -91,6 +91,17 @@ def test_complete_high_risk_kol_builds_shared_alert():
     )
 
 
+@pytest.mark.parametrize(("flag", "expected"), [
+    ("Serious misleading-advertising history triggers a high compliance risk.", "Misleading Advertising / Advertising Compliance"),
+    ("FALSE-ADVERTISING record", "False advertising / advertising compliance"),
+    ("advertising disclosure missing", "Advertising Disclosure Compliance"),
+    ("serious gdpr violation", "GDPR / Data Privacy"),
+    ("unclassified risk requires review", ""),
+])
+def test_risk_hint_normalizes_recorded_wording(flag, expected):
+    assert build_kol_risk_alert(make_kol(flags=[flag])).regulation_hint == expected
+
+
 @pytest.mark.parametrize(
     ("risk_score", "risk_status", "risk_level"),
     [(60, "ready", "medium"), (80, "insufficient", "high"), (None, "insufficient", None)],

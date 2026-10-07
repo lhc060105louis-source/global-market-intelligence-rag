@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .adapters import FakeRAGAdapter, MaxKBRAGAdapter
 from .adapters.maxkb import MaxKBError
-from .config import Settings, get_settings
+from .config import Settings, get_settings, validate_api_credentials
 from .database import Base, create_session_factory
 from .ingestion import IngestionError, ingest
 from .maintenance import ensure_resync_task, rebuild_records
@@ -304,6 +304,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        validate_api_credentials(settings)
         _upgrade_database(settings.database_url)
         with session_factory() as db:
             db.query(AgentRun).filter(AgentRun.status.in_(["queued", "running"])).update(

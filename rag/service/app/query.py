@@ -143,8 +143,8 @@ def extract_chat_error(payload: Any) -> str:
     message = payload.get("message")
     if isinstance(message, str) and message.strip():
         normalized = message.lower()
-    if "model" in normalized and any(
-        marker in normalized for marker in ("not found", "not exist", "not installed", "missing", "unavailable")
+        if "model" in normalized and any(
+            marker in normalized for marker in ("not found", "not exist", "not installed", "missing", "unavailable")
         ):
             return message.strip()
     data = payload.get("data")
@@ -569,7 +569,8 @@ _SEMANTIC_PLACEHOLDER_VALUES = frozenset({
 
 
 _SEMANTIC_ACTION_DOMAIN_MARKERS = {
-    "c": ("c_current", "c_history", "consumer", "user", "review", "comment", "sentiment", "repair", "complaint", "after-sales", "reputation"),
+    # "Review" is an ordinary action verb in every domain, not consumer evidence.
+    "c": ("c_current", "c_history", "consumer", "user", "comment", "sentiment", "repair", "complaint", "after-sales", "reputation"),
     "b": ("b_business", "business impact", "regulation", "compliance", "afir", "cpo", "charging", "power grid", "energy storage", "client project"),
     "kol": ("kol", "influencer", "creator", "reach", "exposure", "content creator"),
 }
@@ -619,7 +620,7 @@ def validate_semantic_draft(draft: SemanticDraft, evidence: list[Evidence], sele
 
 
 _SEMANTIC_VALUE_DOMAIN_MARKERS = {
-    "c": ("consumer", "user", "review", "comment", "sentiment", "after-sales", "reputation"),
+    "c": ("consumer", "user", "comment", "sentiment", "after-sales", "reputation"),
     "b": ("business impact", "regulation", "compliance", "procurement", "client project", "charging", "power grid", "energy storage", "cpo"),
     "kol": ("kol", "influencer", "creator", "reach", "partnership", "exposure", "content creator"),
 }

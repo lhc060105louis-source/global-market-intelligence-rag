@@ -8,8 +8,8 @@ def test_campaign_navigation_and_six_step_workspace_exist(client):
         ("M2", "Basic Information"),
         ("M3", "Audience Strategy"),
         ("M4", "KPI Plan"),
-        ("M5", "Creator and Budget Requirements"),
-        ("M6", "Approval and Handoff"),
+        ("M5", "Creators & Budget"),
+        ("M6", "Approval & Handoff"),
     ):
         assert f'data-campaign-step="{step}"' in html
         assert label in html

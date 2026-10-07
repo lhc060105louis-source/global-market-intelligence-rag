@@ -159,6 +159,44 @@ class CRagPushTests(unittest.TestCase):
         recall = next(item for item in envelopes if item["record_type"] == "consumer_recall_risk")
         self.assertTrue(recall["payload"]["result"]["threshold_exceeded"])
 
+    def test_real_hub_accepts_calculated_records_and_opens_risks_idempotently(self):
+        from fastapi.testclient import TestClient
+        from app.config import Settings
+        from app.main import create_app
+
+        job_id = self.create_job_with_events([
+            event_payload("hub-recall", text="Brake failure requires a recall.", recall=True),
+            event_payload("hub-legal", text="I am pursuing legal action.", rights=True),
+        ])
+        settings = Settings(
+            database_url=f"sqlite:///{Path(self.tmp.name) / 'hub.sqlite3'}",
+            api_key="synthetic-integration-key",
+            adapter="fake",
+            fake_mode="success",
+            auto_sync_on_ingest=False,
+        )
+        headers = {"X-API-Key": settings.api_key}
+        with patch.dict("os.environ", {"C_RAG_RECALL_THRESHOLD": "1", "C_RAG_LEGAL_THRESHOLD": "1"}):
+            buckets = build_job_bucket_six_dimensions(self.conn, job_id)
+        with TestClient(create_app(settings)) as hub:
+            def sender(base_url, api_key, envelope, timeout):
+                response = hub.post("/api/v1/ingestion/c", json=envelope, headers=headers)
+                response.raise_for_status()
+                return {"status_code": response.status_code, "body": response.json()}
+
+            for _ in range(2):
+                result = push_bucket_results_to_rag(
+                    self.conn, buckets, base_url="http://testserver",
+                    api_key=settings.api_key, sender=sender,
+                )
+                self.assertEqual(result["succeeded"], 6, result)
+                self.assertEqual(result["failed"], 0, result)
+            records = hub.get("/api/v1/records", headers=headers).json()
+            self.assertEqual(records["total"], 6)
+            risks = hub.get("/api/v1/risks", params={"status": "open"}, headers=headers).json()
+            self.assertEqual(risks["total"], 2)
+            self.assertTrue(all(item["open_episode_id"] for item in risks["items"]))
+
     def test_builds_six_dimensions_for_each_bucket_and_normalizes_model_case(self):
         job_id = self.create_job_with_events(
             [
@@ -370,6 +408,55 @@ class CRagPushTests(unittest.TestCase):
         )
         for dimension_mock in (journey, nps, complaints, attitude, recall, legal):
             self.assertGreaterEqual(dimension_mock.call_count, 1)
+
+    def test_standard_english_emotions_preserve_legacy_nps_calculation(self):
+        emotion_groups = {
+            10.0: ["joy", "happiness", "satisfaction", "excitement", "moved", "affection", "trust", "anticipation", "curiosity"],
+            5.0: ["calm", "indifference", "surprise"],
+            0.0: ["anxiety", "worry", "nervousness", "fear", "sadness", "disappointment", "frustration", "anger", "disgust", "complaint", "shame", "guilt", "jealousy", "envy", "contempt", "confusion"],
+        }
+        for expected_score, emotions in emotion_groups.items():
+            for emotion in emotions:
+                with self.subTest(emotion=emotion):
+                    event = {
+                        **event_payload(f"emotion-{emotion}", text=f"Synthetic {emotion} feedback."),
+                        "sentiment_spec": emotion,
+                    }
+                    job_id = self.create_job_with_events([event])
+                    bucket = build_job_bucket_six_dimensions(self.conn, job_id)[0]
+                    nps = bucket["dimensions"]["nps_prediction"]["result"]
+                    self.assertEqual(nps["nps_value"], expected_score)
+                    self.assertEqual(nps["promoter_ratio"] + nps["passive_ratio"] + nps["detractor_ratio"], 1.0)
+
+    def test_positive_bucket_retains_attitude_and_nps_without_explicit_emotions(self):
+        job_id = self.create_job_with_events([
+            event_payload("happy-owner", text="Comfortable vehicle.", sentiment_label="positive"),
+        ])
+        bucket = build_job_bucket_six_dimensions(self.conn, job_id)[0]
+        self.assertEqual(bucket["dimensions"]["nps_prediction"]["result"]["nps_value"], 10.0)
+        self.assertEqual(bucket["dimensions"]["brand_attitude"]["result"]["attitude"], "positive")
+
+    def test_local_risk_flags_reach_recall_and_legal_engine(self):
+        job_id = self.create_job_with_events([
+            event_payload("both-risks", text="A recall is needed; I will take legal action.", recall=True, rights=True),
+        ])
+        bucket = build_job_bucket_six_dimensions(self.conn, job_id, recall_threshold=1)[0]
+        recall = bucket["dimensions"]["recall_risk"]["result"]
+        legal = bucket["dimensions"]["legal_risk"]["result"]
+        self.assertEqual(recall["hit_count"], 1)
+        self.assertTrue(recall["threshold_exceeded"])
+        self.assertEqual(legal["hit_count"], 1)
+        self.assertTrue(legal["threshold_exceeded"])
+        self.assertEqual(legal["risk_level"], "high")
+
+    def test_complaint_growth_retains_legacy_trend(self):
+        job_id = self.create_job_with_events([
+            event_payload("complaint-growth", text="A new brake complaint."),
+        ])
+        bucket = build_job_bucket_six_dimensions(self.conn, job_id)[0]
+        complaints = bucket["dimensions"]["key_complaints"]["result"]["complaints"]
+        self.assertEqual(complaints[0]["frequency"], 1)
+        self.assertEqual(complaints[0]["trend_direction"], "up")
 
     def test_successful_open_risk_push_turns_later_clear_result_into_recovery(self):
         first_job = self.create_job_with_events(

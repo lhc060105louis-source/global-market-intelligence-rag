@@ -279,8 +279,15 @@ def _legacy_emotion_names(event: dict[str, Any], legacy_core: ModuleType) -> lis
             for item in event["emotions"]
         )
     aliases = {
-        "positive": "satisfaction", "negative": "complaint", "neutral": "calm", "satisfied": "satisfaction",
-        "happy": "happiness", "complaint": "complaint", "angry": "anger", "calm": "calm",
+        "joy": "喜悦", "happiness": "高兴", "satisfaction": "满足", "excitement": "兴奋",
+        "moved": "感动", "affection": "爱慕", "trust": "信任", "anticipation": "期待",
+        "curiosity": "好奇", "calm": "平静", "indifference": "无感", "surprise": "惊讶",
+        "anxiety": "焦虑", "worry": "担忧", "nervousness": "紧张", "fear": "恐惧",
+        "sadness": "悲伤", "disappointment": "失望", "frustration": "沮丧", "anger": "愤怒",
+        "disgust": "厌恶", "complaint": "抱怨", "shame": "羞愧", "guilt": "内疚",
+        "jealousy": "嫉妒", "envy": "羡慕", "contempt": "鄙视", "confusion": "困惑",
+        "positive": "满足", "negative": "抱怨", "neutral": "平静", "satisfied": "满足",
+        "happy": "高兴", "angry": "愤怒",
     }
     names: list[str] = []
     for value in raw_values:
@@ -289,7 +296,7 @@ def _legacy_emotion_names(event: dict[str, Any], legacy_core: ModuleType) -> lis
         if mapped and mapped not in names:
             names.append(mapped)
     if not names:
-        names = [{"positive": "satisfaction", "negative": "complaint", "neutral": "calm"}[_legacy_sentiment_label(event)]]
+        names = [{"positive": "满足", "negative": "抱怨", "neutral": "平静"}[_legacy_sentiment_label(event)]]
     return names
 
 
@@ -317,7 +324,7 @@ def _legacy_entities(event: dict[str, Any], model: str) -> list[dict[str, Any]]:
         if not any(item.get("type") in {"component", "part"} for item in entities):
             entities.append({"type": "part", "name": _topic_name(event)})
         # Local rules have already determined the match; translate it to the legacy rule vocabulary here.
-        entities.append({"type": "symptom", "name": "recall"})
+        entities.append({"type": "symptom", "name": "召回"})
     if event.get("rights_keyword_hit"):
         intent_markers = (
             "lawyer", "solicitor", "legal action", "lawsuit", "class action",
@@ -325,7 +332,7 @@ def _legacy_entities(event: dict[str, Any], model: str) -> list[dict[str, Any]]:
         )
         entities.append({
             "type": "symptom",
-            "name": "litigation" if _contains_any(text, intent_markers) else "compensation",
+            "name": "起诉" if _contains_any(text, intent_markers) else "赔偿",
         })
     return entities
 
@@ -475,9 +482,9 @@ def _percent_ratio(value: Any) -> float:
 
 def _trend_direction(value: Any) -> str:
     text = str(value or "").casefold()
-    if any(marker in text for marker in ("up", "increasing", "worsening")):
+    if any(marker in text for marker in ("up", "increasing", "worsening", "上升", "恶化")):
         return "up"
-    if any(marker in text for marker in ("down", "decreasing", "improving")):
+    if any(marker in text for marker in ("down", "decreasing", "improving", "下降", "改善")):
         return "down"
     return "stable"
 
@@ -670,7 +677,7 @@ def _bucket_result(
     )
     if old_attitude:
         attitude_text = str(old_attitude.get("attitude") or "").casefold()
-        attitude = "positive" if "positive" in attitude_text else "negative" if "negative" in attitude_text else "neutral"
+        attitude = "positive" if attitude_text in {"positive", "正面"} else "negative" if attitude_text in {"negative", "负面"} else "neutral"
         attitude_result = {
             "attitude": attitude,
             "positive_ratio": _percent_ratio(old_attitude.get("positive_ratio")),
@@ -727,7 +734,10 @@ def _bucket_result(
         end_time=end_time,
         threshold=legal_threshold,
     )
-    legal_level = {"High": "high", "Medium": "medium", "Low": "low", "None": "none"}.get(
+    legal_level = {
+        "High": "high", "Medium": "medium", "Low": "low", "None": "none",
+        "高": "high", "中": "medium", "低": "low", "无": "none",
+    }.get(
         str(old_legal.get("risk_level") or ""), "none"
     )
     legal_events = [event for event in events if event.get("rights_keyword_hit")]

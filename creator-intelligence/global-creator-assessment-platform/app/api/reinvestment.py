@@ -58,17 +58,20 @@ def archive(kol_key: str, session: Session = Depends(get_session)) -> dict:
 
 
 @router.get("/evaluations/{kol_key}")
-def evaluation(kol_key: str, session: Session = Depends(get_session)) -> dict:
-    data = get_reinvestment_evaluation(session, kol_key)
+def evaluation(kol_key: str, campaign_id: str | None = None, session: Session = Depends(get_session)) -> dict:
+    try:
+        data = get_reinvestment_evaluation(session, kol_key, campaign_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     if data is None:
         raise HTTPException(status_code=404, detail="No reinvestment assessment found for this creator")
     return data
 
 
 @router.post("/evaluations/{kol_key}/approval")
-def save_approval(kol_key: str, payload: DecisionPayload, session: Session = Depends(get_session)) -> dict:
+def save_approval(kol_key: str, payload: DecisionPayload, campaign_id: str | None = None, session: Session = Depends(get_session)) -> dict:
     try:
-        return save_evaluation_approval(session, kol_key, payload.decision, payload.note)
+        return save_evaluation_approval(session, kol_key, payload.decision, payload.note, campaign_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -76,8 +79,11 @@ def save_approval(kol_key: str, payload: DecisionPayload, session: Session = Dep
 
 
 @router.get("/portfolio")
-def portfolio(session: Session = Depends(get_session)) -> dict:
-    return get_portfolio_plan(session)
+def portfolio(campaign_id: str | None = None, session: Session = Depends(get_session)) -> dict:
+    try:
+        return get_portfolio_plan(session, campaign_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/portfolio/select")
@@ -111,8 +117,11 @@ def save_governance(kol_key: str, payload: GovernancePayload, session: Session =
 
 
 @router.get("/actions")
-def actions(session: Session = Depends(get_session)) -> dict:
-    return get_action_tracking(session)
+def actions(campaign_id: str | None = None, session: Session = Depends(get_session)) -> dict:
+    try:
+        return get_action_tracking(session, campaign_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/actions/{task_code}")

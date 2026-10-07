@@ -336,7 +336,7 @@ export default function PageAlert({ showToast, refreshToken = 0 }: PageAlertProp
               <Card>
                 <CardHead>
                   <CardTitle icon="✦">Risk Investigation Agent</CardTitle>
-                  {investigationRun && <Badge text={investigationRun.status.replaceAll('_', ' ')} color={investigationRun.status === 'awaiting_approval' ? 'amber' : investigationRun.status === 'approved' ? 'green' : 'gray'} />}
+                  {investigationRun && <Badge text={investigationRun.status.replace(/_/g, ' ')} color={investigationRun.status === 'awaiting_approval' ? 'amber' : investigationRun.status === 'approved' ? 'green' : 'gray'} />}
                 </CardHead>
                 <CardBody>
                   {!investigationRun && <InfoBox>Investigate this active risk across consumer, business, and creator records. Every proposed case and task requires your approval.</InfoBox>}
